@@ -64,3 +64,34 @@ This project does not have automated tests configured.
 ## Debugging
 - Electron runs with `--zhihuhelp-debug` flag by default via `npm start`
 - The app generates `.adonisrc.json` at runtime from `adonisrc.json` template
+
+## Known Issues & Solutions
+
+### sharp Module Load Error
+**Error**: `The specified module could not be found. sharp-win32-x64.node`
+
+**Root Cause**: Node ABI version mismatch between system Node.js and Electron's Node.js.
+- sharp is compiled for system Node.js ABI (e.g., v24 -> ABI v137)
+- Electron uses different Node.js version (e.g., v18 -> ABI v113)
+- This causes the native module to fail loading in Electron
+
+**Solution**:
+```bash
+# 1. Reinstall sharp to get fresh dependencies
+pnpm uninstall sharp
+pnpm install sharp@0.30.7
+
+# 2. Download libvips binaries
+node node_modules/sharp/install/libvips.js
+
+# 3. Copy DLL files
+node node_modules/sharp/install/dll-copy.js
+
+# 4. Rebuild sharp for Electron
+npx electron-rebuild -f -w sharp
+```
+
+**Prevention**: Add to `package.json` scripts:
+```json
+"postinstall": "electron-builder install-app-deps || npx electron-rebuild"
+```
