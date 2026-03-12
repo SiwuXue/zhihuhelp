@@ -362,6 +362,19 @@ export default () => {
             </Radio.Group>
           </Form.Item>
           <Form.Item
+            name="exportFormat"
+            label="导出格式"
+            labelCol={{
+              span: 3,
+            }}
+          >
+            <Checkbox.Group>
+              <Checkbox value={Consts_Task_Config.Const_Export_Format_EPUB}>EPUB</Checkbox>
+              <Checkbox value={Consts_Task_Config.Const_Export_Format_HTML}>HTML</Checkbox>
+              <Checkbox value={Consts_Task_Config.Const_Export_Format_Markdown}>Markdown</Checkbox>
+            </Checkbox.Group>
+          </Form.Item>
+          <Form.Item
             label="自动分卷"
             labelCol={{
               span: 3,

@@ -18,7 +18,8 @@ export type Type_Form_Config = {
     }[],
     "imageQuilty": "hd",
     "maxItemInBook": 10000,
-    "comment": ""
+    "comment": "",
+    "exportFormat": TypeTaskConfig.Type_Export_Format_List
 }
 
 export default class Util {
@@ -57,7 +58,8 @@ export default class Util {
             maxItemInBook: param["maxItemInBook"],
             "comment": param.comment,
             "orderByList": [],
-            generateType: "merge_by_task"
+            generateType: "merge_by_task",
+            exportFormat: param.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List
         }
         // 排序配置
         for (let orderItem of param["orderItemList"]) {
@@ -101,7 +103,8 @@ export default class Util {
             "maxItemInBook": config.generateConfig.maxItemInBook,
             "comment": config.generateConfig.comment,
             "orderItemList": [],
-            "generateType": config.generateConfig.generateType
+            "generateType": config.generateConfig.generateType,
+            "exportFormat": config.generateConfig.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List
         }
         // 排序配置
         for (let orderItem of config.generateConfig.orderByList) {

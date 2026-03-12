@@ -66,6 +66,10 @@ export type Type_Generate_Type =
 export type Type_Image_Quilty = Type_Image_Quilty_高清 | Type_Image_Quilty_原图 | Type_Image_Quilty_无图
 export type Type_Task_Type = Type_Author_Collection_Type | Type_Item_Collection_Type
 
+// 导出格式
+export type Type_Export_Format = 'epub' | 'html' | 'markdown'
+export type Type_Export_Format_List = Type_Export_Format[]
+
 export type Type_Order_By_Config = {
   orderBy: Type_Order_By
   orderWith: Type_Order_With
@@ -91,6 +95,7 @@ export type Type_Task_Config = {
     maxItemInBook: Type_Max_Item_In_Book // 自动分卷: 单本电子书中最大问题/文章数量
     orderByList: Type_Order_By_Config_List
     generateType: Type_Generate_Type
+    exportFormat: Type_Export_Format_List // 导出格式列表
   }
   requestConfig: {
     ua:

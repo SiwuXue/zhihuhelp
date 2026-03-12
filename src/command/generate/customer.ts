@@ -26,6 +26,7 @@ import * as Date_Format from '~/src/constant/date_format'
 import * as Package from './resource/library/package'
 
 import EpubGenerator from './library/epub_generator'
+import MarkdownGenerator from './library/markdown_generator'
 import moment from 'moment'
 import { ReactElement } from 'react'
 
@@ -87,7 +88,7 @@ class GenerateCustomer extends Base {
 
     let epubColumnList = await this.asyncGetColumnPackage({ fetchTaskList, generateConfig })
 
-    // 针对每一个结果, 生成epub
+    // 针对每一个结果, 根据配置生成对应格式
 
     // 处理html
     // 下载图片
@@ -95,11 +96,25 @@ class GenerateCustomer extends Base {
 
     for (let epubColumn of epubColumnList) {
       let bookname = epubColumn.bookname
-      this.log(`输出电子书:${bookname}`)
-      await this.generateEpub({
-        epubColumn,
-        imageQuilty,
-      })
+      let exportFormat = generateConfig.exportFormat || Const_TaskConfig.Const_Default_Export_Format_List
+      this.log(`输出电子书:${bookname}, 格式:${exportFormat.join(',')}`)
+
+      // 生成 EPUB
+      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)) {
+        await this.generateEpub({
+          epubColumn,
+          imageQuilty,
+        })
+      }
+
+      // 生成 Markdown
+      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_Markdown)) {
+        await this.generateMarkdown({
+          epubColumn,
+          imageQuilty,
+        })
+      }
+
       this.log(`电子书:${bookname}输出完毕`)
     }
     this.log(`所有电子书输出完毕`)
@@ -1116,6 +1131,116 @@ class GenerateCustomer extends Base {
     await epubGenerator.asyncGenerateEpub()
 
     this.log(`自定义电子书${epubColumn.bookname}生成完毕`)
+  }
+
+  async generateMarkdown({
+    imageQuilty,
+    epubColumn,
+  }: {
+    imageQuilty: TypeTaskConfig.Type_Image_Quilty
+    epubColumn: Package.Ebook_Column
+  }) {
+    this.log(`开始生成 Markdown: ${epubColumn.bookname}`)
+
+    let markdownGenerator = new MarkdownGenerator({ bookname: epubColumn.bookname, imageQuilty })
+
+    // 收集所有页面内容
+    let pages: Array<{
+      filename: string
+      title: string
+      html: string
+    }> = []
+
+    for (let unit of epubColumn.unitList) {
+      // 添加单元信息页
+      let { filename, title, html } = this.generateUnitInfoHtml(unit)
+      pages.push({ filename, title, html })
+
+      // 添加内容页
+      for (let page of unit.pageList) {
+        let { filename, title, html } = this.generatePageHtml(page)
+        pages.push({ filename, title, html })
+      }
+    }
+
+    // 添加索引页
+    let indexRecordList: Type_Index_Record[] = []
+    for (let unit of epubColumn.unitList) {
+      let unitTitle = this.generateColumnTitle(unit)
+      let unitFilename = ''
+      // 根据类型生成文件名
+      switch (unit.type) {
+        case Const_TaskConfig.Const_Task_Type_混合类型:
+          unitFilename = `mix_type_${moment().format(Date_Format.Const_Display_By_Second)}`
+          break
+        case Const_TaskConfig.Const_Task_Type_收藏夹:
+          unitFilename = `collection_type_${unit.info['id']}`
+          break
+        case Const_TaskConfig.Const_Task_Type_专栏:
+          unitFilename = `column_type_${unit.info['id']}`
+          break
+        case Const_TaskConfig.Const_Task_Type_话题:
+          unitFilename = `topic_type_${unit.info['id']}`
+          break
+        default:
+          unitFilename = `author_type_${unit.info['id']}`
+          break
+      }
+      let unitRecord: Type_Index_Record = {
+        title: unitTitle,
+        uri: `${unitFilename}.html`,
+        pageList: [],
+      }
+      for (let page of unit.pageList) {
+        let pageTitle = ''
+        let pageFilename = ''
+        switch (page.type) {
+          case Consts.Const_Type_Question:
+            {
+              const questionPage = page as Package.Page_Question
+              pageTitle = questionPage.baseInfo.title
+              pageFilename = `question_${questionPage.baseInfo.id}`
+            }
+            break
+          case Consts.Const_Type_Article:
+            {
+              const articlePage = page as Package.Page_Article
+              const firstRecord = articlePage.recordList[0]
+              pageTitle = firstRecord?.record?.title || ''
+              pageFilename = `article_${firstRecord?.record?.id || ''}`
+            }
+            break
+          case Consts.Const_Type_Pin:
+            {
+              const pinPage = page as Package.Page_Pin
+              const firstRecord = pinPage.recordList[0]
+              pageTitle = '想法_' + (firstRecord?.record?.id || '')
+              pageFilename = `pin_${firstRecord?.record?.id || ''}`
+            }
+            break
+        }
+        unitRecord.pageList.push({
+          title: pageTitle,
+          uri: `${pageFilename}.html`,
+        })
+      }
+      indexRecordList.push(unitRecord)
+    }
+    let indexPage = this.generateIndexHtml(indexRecordList)
+    pages.unshift({
+      filename: indexPage.filename,
+      title: indexPage.title,
+      html: indexPage.html,
+    })
+
+    // 生成 Markdown（多文件版）
+    this.log(`[generateMarkdown] 准备生成 Markdown，页面数: ${pages.length}`)
+    await markdownGenerator.generateMarkdown(pages, '')
+
+    // 生成合并版 Markdown
+    await markdownGenerator.generateMergedMarkdown(pages, '', epubColumn.bookname)
+
+    this.log(`Markdown 生成完成: ${epubColumn.bookname}`)
   }
 }
 

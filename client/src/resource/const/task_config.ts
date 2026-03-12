@@ -51,6 +51,15 @@ export const Const_Image_Quilty_高清 = 'hd' as const
 export const Const_Image_Quilty_原图 = 'raw' as const
 export const Const_Image_Quilty_无图 = 'none' as const
 
+// 导出格式
+export const Const_Export_Format_EPUB = 'epub' as const
+export const Const_Export_Format_HTML = 'html' as const
+export const Const_Export_Format_Markdown = 'markdown' as const
+export const Const_Default_Export_Format_List = [
+  Const_Export_Format_EPUB,
+  Const_Export_Format_HTML,
+] as Type_TaskConfig.Type_Export_Format_List
+
 // 默认ua
 export const Const_Default_Ua =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36' as const
@@ -72,6 +81,7 @@ export const Const_Default_Config: Type_TaskConfig.Type_Task_Config = {
     maxItemInBook: Const_Max_Question_Or_Article_In_Book, // 自动分卷: 单本电子书中最大问题/文章数量
     orderByList: [],
     generateType: Const_Generate_Type_独立输出电子书, // 生成逻辑
+    exportFormat: Const_Default_Export_Format_List, // 导出格式
   },
   requestConfig: {
     cookie: Const_Default_Cookie,

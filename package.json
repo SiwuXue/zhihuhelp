@@ -81,10 +81,11 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "semver": "^7.3.7",
-    "sharp": "^0.30.7",
+    "sharp": "0.30.7",
     "shelljs": "^0.8.1",
-    "sqlite3": "^5.1.2",
-    "tiny-async-pool": "^2.1.0"
+    "sqlite3": "5.1.7",
+    "tiny-async-pool": "^2.1.0",
+    "turndown": "^7.2.2"
   },
   "devDependencies": {
     "@adonisjs/application": "^5.2.5",
@@ -112,6 +113,7 @@
     "@types/semver": "^7.3.10",
     "@types/sharp": "^0.25.0",
     "@types/shelljs": "^0.7.8",
+    "@types/turndown": "^5.0.6",
     "babel-plugin-root-import": "^6.6.0",
     "electron": "23.2.0",
     "electron-builder": "23.6.0",
