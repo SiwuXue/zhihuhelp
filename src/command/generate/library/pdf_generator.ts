@@ -6,10 +6,7 @@ import logger from '~/src/library/logger'
 import PathConfig from '~/src/config/path'
 import * as Type_TaskConfig from '~/src/type/task_config'
 
-const ELECTRON_EXECUTABLE_PATH = path.resolve(
-  __dirname,
-  '../../../../node_modules/.pnpm/electron@23.2.0/node_modules/electron/dist/electron.exe'
-)
+const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 
 class PdfGenerator {
   bookname: string = ''
@@ -24,7 +21,7 @@ class PdfGenerator {
   }
 
   get pdfOutputPath() {
-    return path.resolve(PathConfig.epubOutputPath)
+    return path.resolve(PathConfig.pdfOutputPath)
   }
 
   get pdfOutputPathUri() {
@@ -46,7 +43,7 @@ class PdfGenerator {
 
     try {
       browser = await puppeteer.launch({
-        executablePath: ELECTRON_EXECUTABLE_PATH,
+        executablePath: CHROME_EXECUTABLE_PATH,
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       })

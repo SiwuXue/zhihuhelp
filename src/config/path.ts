@@ -11,6 +11,7 @@ export default class PathConfig {
   static readonly outputPath = path.resolve(PathConfig.rootPath, '知乎助手输出的电子书')
   static readonly epubOutputPath = path.resolve(PathConfig.outputPath, 'epub')
   static readonly htmlOutputPath = path.resolve(PathConfig.outputPath, 'html')
+  static readonly pdfOutputPath = path.resolve(PathConfig.outputPath, 'pdf')
 
   // package.json文件
   static readonly packageJsonUri = path.resolve(PathConfig.rootPath, 'package.json')
@@ -27,5 +28,6 @@ export default class PathConfig {
     PathConfig.outputPath,
     PathConfig.epubOutputPath,
     PathConfig.htmlOutputPath,
+    PathConfig.pdfOutputPath,
   ]
 }
