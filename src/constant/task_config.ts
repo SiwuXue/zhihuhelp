@@ -79,6 +79,10 @@ export const Const_Default_Config: Type_TaskConfig.Type_Task_Config = {
     orderByList: [],
     generateType: Const_Generate_Type_独立输出电子书, // 生成逻辑
     exportFormat: Const_Default_Export_Format_List, // 导出格式
+    dateRange: {
+      startDate: null,
+      endDate: null,
+    },
   },
   requestConfig: {
     cookie: Const_Default_Cookie,

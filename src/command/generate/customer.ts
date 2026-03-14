@@ -178,6 +178,27 @@ class GenerateCustomer extends Base {
       unitPackageList.push(mixUnitPackage)
     }
 
+    // 日期范围筛选
+    const dateRange = generateConfig.dateRange
+    if (dateRange && (dateRange.startDate || dateRange.endDate)) {
+      this.log(`应用日期范围筛选: ${dateRange.startDate || '无限制'} 至 ${dateRange.endDate || '无限制'}`)
+      const startTimestamp = dateRange.startDate ? new Date(dateRange.startDate).getTime() : 0
+      const endTimestamp = dateRange.endDate ? new Date(dateRange.endDate).getTime() + 86400000 : Infinity // 结束日期包含当天
+
+      for (let unitPackage of unitPackageList) {
+        unitPackage.pageList = unitPackage.pageList.filter((page) => {
+          // 获取页面的创建时间（使用第一个记录的创建时间）
+          // answer 使用 created_time, article 和 pin 使用 created
+          const record = page.recordList[0]?.record as any
+          const pageTime = (record?.created_time ?? record?.created ?? 0) as number
+          return pageTime >= startTimestamp && pageTime <= endTimestamp
+        })
+      }
+      // 过滤掉没有页面的单元包
+      unitPackageList = unitPackageList.filter((unit) => unit.pageList.length > 0)
+      this.log(`日期筛选完成，剩余 ${unitPackageList.length} 个单元包`)
+    }
+
     // 对数据进行排序
     // 首先对数据进行预处理
     switch (generateType) {

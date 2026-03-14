@@ -14,6 +14,7 @@ import {
   App,
   Checkbox,
   Modal,
+  DatePicker,
 } from 'antd'
 import { DownOutlined } from '@ant-design/icons'
 import { useSnapshot } from 'valtio'
@@ -132,6 +133,7 @@ export default () => {
     form.setFieldValue('imageQuilty', initValue.imageQuilty)
     form.setFieldValue('maxItemInBook', initValue.maxItemInBook)
     form.setFieldValue('comment', initValue.comment)
+    form.setFieldValue('dateRange', initValue.dateRange)
 
     handleBatchTaskModal.syncToModalValue(initValue.taskItemList)
 
@@ -374,6 +376,22 @@ export default () => {
               <Checkbox value={Consts_Task_Config.Const_Export_Format_Markdown}>Markdown</Checkbox>
               <Checkbox value={Consts_Task_Config.Const_Export_Format_PDF}>PDF</Checkbox>
             </Checkbox.Group>
+          </Form.Item>
+          <Form.Item
+            label="日期范围"
+            labelCol={{
+              span: 3,
+            }}
+          >
+            <Space>
+              <Form.Item name={['dateRange', 'startDate']} noStyle>
+                <DatePicker placeholder="开始日期" format="YYYY-MM-DD" />
+              </Form.Item>
+              至
+              <Form.Item name={['dateRange', 'endDate']} noStyle>
+                <DatePicker placeholder="结束日期" format="YYYY-MM-DD" />
+              </Form.Item>
+            </Space>
           </Form.Item>
           <Form.Item
             label="自动分卷"

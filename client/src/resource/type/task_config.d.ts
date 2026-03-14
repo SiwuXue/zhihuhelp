@@ -83,6 +83,12 @@ export type Type_Fetch_Task_Config_Item = {
   skipFetch: boolean
 }
 
+// 日期范围配置
+export type Type_Date_Range = {
+  startDate: string | null
+  endDate: string | null
+}
+
 // 自定义抓取
 export type Type_Task_Config = {
   fetchTaskList: Type_Fetch_Task_Config_Item[]
@@ -94,6 +100,7 @@ export type Type_Task_Config = {
     orderByList: Type_Order_By_Config_List
     generateType: Type_Generate_Type
     exportFormat: Type_Export_Format_List // 导出格式列表
+    dateRange: Type_Date_Range // 日期范围筛选
   }
   requestConfig: {
     ua:

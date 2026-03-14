@@ -20,6 +20,7 @@ export type Type_Form_Config = {
     "maxItemInBook": 10000,
     "comment": "",
     "exportFormat": TypeTaskConfig.Type_Export_Format_List
+    "dateRange": TypeTaskConfig.Type_Date_Range
 }
 
 export default class Util {
@@ -59,7 +60,8 @@ export default class Util {
             "comment": param.comment,
             "orderByList": [],
             generateType: "merge_by_task",
-            exportFormat: param.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List
+            exportFormat: param.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List,
+            dateRange: param.dateRange || { startDate: null, endDate: null }
         }
         // 排序配置
         for (let orderItem of param["orderItemList"]) {
@@ -81,7 +83,12 @@ export default class Util {
             "generateType": "single",
             "imageQuilty": "hd",
             "maxItemInBook": 10000,
-            "orderItemList": []
+            "orderItemList": [],
+            "exportFormat": ConstTaskConfig.Const_Default_Export_Format_List,
+            "dateRange": {
+                startDate: null,
+                endDate: null
+            }
         }
 
         // 抓取任务
@@ -104,7 +111,8 @@ export default class Util {
             "comment": config.generateConfig.comment,
             "orderItemList": [],
             "generateType": config.generateConfig.generateType,
-            "exportFormat": config.generateConfig.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List
+            "exportFormat": config.generateConfig.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List,
+            "dateRange": config.generateConfig.dateRange || { startDate: null, endDate: null }
         }
         // 排序配置
         for (let orderItem of config.generateConfig.orderByList) {

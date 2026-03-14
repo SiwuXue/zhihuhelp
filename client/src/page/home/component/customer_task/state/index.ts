@@ -28,6 +28,7 @@ export type Type_FormValue = {
     "orderItemList": Types_Task_Config.Type_Order_By_Config_List
     "generateType": Types_Task_Config.Type_Generate_Type
     "exportFormat": Types_Task_Config.Type_Export_Format_List // 导出格式
+    "dateRange": Types_Task_Config.Type_Date_Range // 日期范围
 }
 
 export const Const_Default_FormValue: Type_FormValue = {
@@ -38,7 +39,11 @@ export const Const_Default_FormValue: Type_FormValue = {
     "maxItemInBook": Consts_Task_Config.Const_Max_Question_Or_Article_In_Book,
     "orderItemList": [],
     "generateType": Consts_Task_Config.Const_Generate_Type_合并输出电子书_按任务拆分章节,
-    "exportFormat": Consts_Task_Config.Const_Default_Export_Format_List
+    "exportFormat": Consts_Task_Config.Const_Default_Export_Format_List,
+    "dateRange": {
+        startDate: null,
+        endDate: null
+    }
 }
 
 /**
