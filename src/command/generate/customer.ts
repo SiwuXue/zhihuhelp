@@ -21,12 +21,14 @@ import CommonUtil from "~/src/library/util/common"
 
 import HtmlRender from './library/html_render'
 import fs from 'fs'
+import path from 'path'
 import * as Date_Format from '~/src/constant/date_format'
 
 import * as Package from './resource/library/package'
 
 import EpubGenerator from './library/epub_generator'
 import MarkdownGenerator from './library/markdown_generator'
+import PdfGenerator from './library/pdf_generator'
 import moment from 'moment'
 import { ReactElement } from 'react'
 
@@ -110,6 +112,14 @@ class GenerateCustomer extends Base {
       // 生成 Markdown
       if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_Markdown)) {
         await this.generateMarkdown({
+          epubColumn,
+          imageQuilty,
+        })
+      }
+
+      // 生成 PDF
+      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_PDF)) {
+        await this.generatePdf({
           epubColumn,
           imageQuilty,
         })
@@ -1241,6 +1251,38 @@ class GenerateCustomer extends Base {
     await markdownGenerator.generateMergedMarkdown(pages, '', epubColumn.bookname)
 
     this.log(`Markdown 生成完成: ${epubColumn.bookname}`)
+  }
+
+  async generatePdf({
+    imageQuilty,
+    epubColumn,
+  }: {
+    imageQuilty: TypeTaskConfig.Type_Image_Quilty
+    epubColumn: Package.Ebook_Column
+  }) {
+    this.log(`开始生成 PDF: ${epubColumn.bookname}`)
+
+    let pdfGenerator = new PdfGenerator({ bookname: epubColumn.bookname, imageQuilty })
+    await pdfGenerator.init()
+
+    let ele4SinglePageList: ReactElement[] = []
+
+    for (let unit of epubColumn.unitList) {
+      let { filename, title, html, ele4SinglePage: unitEle4SinglePage } = this.generateUnitInfoHtml(unit)
+      ele4SinglePageList.push(unitEle4SinglePage)
+
+      for (let page of unit.pageList) {
+        let { filename, title, html, ele4SinglePage: pageEle4SinglePage } = this.generatePageHtml(page)
+        ele4SinglePageList.push(pageEle4SinglePage)
+      }
+    }
+
+    let singlePageContent = this.generateSinglePageHtml(ele4SinglePageList)
+
+    let pdfPath = path.resolve(PathConfig.epubOutputPath, `${epubColumn.bookname}.pdf`)
+    await pdfGenerator.saveHtmlToPdf(singlePageContent, pdfPath)
+
+    this.log(`PDF 生成完成: ${pdfPath}`)
   }
 }
 

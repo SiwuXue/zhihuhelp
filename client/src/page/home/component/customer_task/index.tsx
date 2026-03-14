@@ -284,7 +284,7 @@ export default () => {
               >
                 <Form form={modalForm}>
                   <Form.Item name="batchUrlListStr" label="任务列表">
-                    <Input.TextArea suffix={''} autoSize={{ minRows: 10 }} allowClear></Input.TextArea>
+                    <Input.TextArea autoSize={{ minRows: 10 }} allowClear></Input.TextArea>
                   </Form.Item>
                 </Form>
               </Modal>
@@ -372,6 +372,7 @@ export default () => {
               <Checkbox value={Consts_Task_Config.Const_Export_Format_EPUB}>EPUB</Checkbox>
               <Checkbox value={Consts_Task_Config.Const_Export_Format_HTML}>HTML</Checkbox>
               <Checkbox value={Consts_Task_Config.Const_Export_Format_Markdown}>Markdown</Checkbox>
+              <Checkbox value={Consts_Task_Config.Const_Export_Format_PDF}>PDF</Checkbox>
             </Checkbox.Group>
           </Form.Item>
           <Form.Item
@@ -396,7 +397,7 @@ export default () => {
             }}
             wrapperCol={{ span: 18 }}
           >
-            <TextArea suffix={''} allowClear />
+            <TextArea allowClear />
           </Form.Item>
           <Form.Item wrapperCol={{ span: 14, offset: 3 }}>
             <Button type="primary" htmlType="submit" loading={statusSnap.loading.startTask}>
@@ -463,7 +464,7 @@ export default () => {
                       },
                     },
                   ],
-                  onClick: () => {},
+                  onClick: () => { },
                 }}
                 icon={<DownOutlined />}
               >

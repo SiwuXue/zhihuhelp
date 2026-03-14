@@ -65,7 +65,7 @@ export type Type_Image_Quilty = Type_Image_Quilty_高清 | Type_Image_Quilty_原
 export type Type_Task_Type = Type_Author_Collection_Type | Type_Item_Collection_Type
 
 // 导出格式
-export type Type_Export_Format = 'epub' | 'html' | 'markdown'
+export type Type_Export_Format = 'epub' | 'html' | 'markdown' | 'pdf'
 export type Type_Export_Format_List = Type_Export_Format[]
 
 export type Type_Order_By_Config = {

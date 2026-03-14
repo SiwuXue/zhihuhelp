@@ -55,6 +55,8 @@ export const Const_Image_Quilty_无图 = 'none' as const
 export const Const_Export_Format_EPUB = 'epub' as const
 export const Const_Export_Format_HTML = 'html' as const
 export const Const_Export_Format_Markdown = 'markdown' as const
+export const Const_Export_Format_PDF = 'pdf' as const
+
 export const Const_Default_Export_Format_List = [
   Const_Export_Format_EPUB,
   Const_Export_Format_HTML,
