@@ -1300,7 +1300,7 @@ class GenerateCustomer extends Base {
 
     let singlePageContent = this.generateSinglePageHtml(ele4SinglePageList)
 
-    let pdfPath = path.resolve(PathConfig.epubOutputPath, `${epubColumn.bookname}.pdf`)
+    let pdfPath = path.resolve(PathConfig.pdfOutputPath, `${epubColumn.bookname}.pdf`)
     await pdfGenerator.saveHtmlToPdf(singlePageContent, pdfPath)
 
     this.log(`PDF 生成完成: ${pdfPath}`)
