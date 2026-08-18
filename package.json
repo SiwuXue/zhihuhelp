@@ -33,7 +33,6 @@
     "productName": "知乎助手",
     "appId": "zhihuhelp",
     "copyright": "@姚泽源",
-    "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
     "asar": false,
@@ -46,16 +45,18 @@
     ],
     "win": {
       "target": [
-        {
-          "target": "nsis"
-        }
+        "nsis"
       ],
+      "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
       "icon": "src/public/icon/icon.ico"
     },
     "mac": {
       "category": "public.app-category.education",
-      "target": "7z",
-      "icon": "src/public/icon/icon.png"
+      "target": [
+        "7z"
+      ],
+      "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
+      "icon": "src/public/icon/icon.ico"
     },
     "nsis": {
       "oneClick": false,
