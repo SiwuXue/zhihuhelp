@@ -40,7 +40,6 @@
     },
     "files": [
       "dist/**/*",
-      "gui/dist/**/*",
       "node_modules/**/*"
     ],
     "win": {
