@@ -1,8 +1,8 @@
-import logger from '~/src/library/logger'
+import logger from '../../library/logger'
 import fs from 'fs'
-import PathConfig from '~/src/config/path'
-import * as Type_TaskConfig from '~/src/type/task_config'
-import * as Const_TaskConfig from '~/src/constant/task_config'
+import PathConfig from '../../config/path'
+import * as Type_TaskConfig from '../../type/task_config'
+import * as Const_TaskConfig from '../../constant/task_config'
 import AsyncPool from 'tiny-async-pool'
 import md5 from 'md5'
 

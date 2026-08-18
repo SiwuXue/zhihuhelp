@@ -1,7 +1,7 @@
-import AnswerApi from '~/src/api/single/answer'
-import MAnswer from '~/src/model/answer'
+import AnswerApi from '../../api/single/answer'
+import MAnswer from '../../model/answer'
 import lodash from 'lodash'
-import Base from '~/src/api/batch/base'
+import Base from '../../api/batch/base'
 
 class BatchFetchAnswer extends Base {
   /**

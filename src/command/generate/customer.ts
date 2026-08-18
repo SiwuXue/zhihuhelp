@@ -1,35 +1,35 @@
-import Base from '~/src/command/base'
+import Base from '../../command/base'
 import * as Consts from './resource/const/index'
-import * as Const_TaskConfig from '~/src/constant/task_config'
-import TypeTaskConfig, { Type_Task_Config } from '~/src/type/task_config'
-import TypeAnswer from '~/src/type/zhihu/answer'
-import * as TypePin from '~/src/type/zhihu/pin'
-import TypeArticle from '~/src/type/zhihu/article'
-import PathConfig from '~/src/config/path'
-import MAuthor from '~/src/model/author'
-import MAuthorAskQuestion from '~/src/model/author_ask_question'
-import MActivity from '~/src/model/activity'
-import MAnswer from '~/src/model/answer'
-import MArticle from '~/src/model/article'
-import MTopic from '~/src/model/topic'
-import MCollection from '~/src/model/collection'
-import MColumn from '~/src/model/column'
-import MPin from '~/src/model/pin'
+import * as Const_TaskConfig from '../../constant/task_config'
+import TypeTaskConfig, { Type_Task_Config } from '../../type/task_config'
+import TypeAnswer from '../../type/zhihu/answer'
+import * as TypePin from '../../type/zhihu/pin'
+import TypeArticle from '../../type/zhihu/article'
+import PathConfig from '../../config/path'
+import MAuthor from '../../model/author'
+import MAuthorAskQuestion from '../../model/author_ask_question'
+import MActivity from '../../model/activity'
+import MAnswer from '../../model/answer'
+import MArticle from '../../model/article'
+import MTopic from '../../model/topic'
+import MCollection from '../../model/collection'
+import MColumn from '../../model/column'
+import MPin from '../../model/pin'
 import lodash from 'lodash'
 import json5 from 'json5'
-import CommonUtil from "~/src/library/util/common"
+import CommonUtil from "../../library/util/common"
 
 import HtmlRender from './library/html_render'
 import fs from 'fs'
 import path from 'path'
-import * as Date_Format from '~/src/constant/date_format'
+import * as Date_Format from '../../constant/date_format'
 
 import * as Package from './resource/library/package'
 
 import EpubGenerator from './library/epub_generator'
 import MarkdownGenerator from './library/markdown_generator'
 import PdfGenerator from './library/pdf_generator'
-import moment from 'moment'
+import dayjs from 'dayjs'
 import { ReactElement } from 'react'
 import shelljs from 'shelljs'
 
@@ -716,7 +716,7 @@ class GenerateCustomer extends Base {
     let bookTitle = ''
     switch (unitItem.type) {
       case Const_TaskConfig.Const_Task_Type_混合类型:
-        bookTitle = `问答混排_${moment().format(Date_Format.Const_Display_By_Second)}`
+        bookTitle = `问答混排_${dayjs().format(Date_Format.Const_Display_By_Second)}`
         break
       case Const_TaskConfig.Const_Task_Type_收藏夹:
         bookTitle = `收藏夹_${unitItem.info['title']}(${unitItem.info['id']})`
@@ -766,7 +766,7 @@ class GenerateCustomer extends Base {
         }
         break
       default:
-        bookTitle = `未识别任务_${moment().format(Date_Format.Const_Display_By_Second)}`
+        bookTitle = `未识别任务_${dayjs().format(Date_Format.Const_Display_By_Second)}`
     }
     return CommonUtil.encodeFilename(bookTitle)
   }
@@ -950,9 +950,9 @@ class GenerateCustomer extends Base {
     switch (unit.type) {
       case Const_TaskConfig.Const_Task_Type_混合类型:
         renderResult = HtmlRender.renderInfoPage({
-          title: `混合类型_${moment().format(Date_Format.Const_Display_By_Second)}`,
+          title: `混合类型_${dayjs().format(Date_Format.Const_Display_By_Second)}`,
         })
-        filename = `mix_type_${moment().format(Date_Format.Const_Display_By_Second)}`
+        filename = `mix_type_${dayjs().format(Date_Format.Const_Display_By_Second)}`
         break
       case Const_TaskConfig.Const_Task_Type_收藏夹:
         renderResult = HtmlRender.renderInfoPage({
@@ -1030,15 +1030,15 @@ class GenerateCustomer extends Base {
               renderResult = HtmlRender.renderInfoPage({
                 title: `${userName}`,
               })
-              filename = `author_type_default_${moment().format(Date_Format.Const_Display_By_Second)}`
+              filename = `author_type_default_${dayjs().format(Date_Format.Const_Display_By_Second)}`
           }
         }
         break
       default:
         renderResult = HtmlRender.renderInfoPage({
-          title: `未识别任务_${moment().format(Date_Format.Const_Display_By_Second)}`,
+          title: `未识别任务_${dayjs().format(Date_Format.Const_Display_By_Second)}`,
         })
-        filename = `unknown_type_${moment().format(Date_Format.Const_Display_By_Second)}`
+        filename = `unknown_type_${dayjs().format(Date_Format.Const_Display_By_Second)}`
     }
     return {
       filename: filename,
@@ -1211,7 +1211,7 @@ class GenerateCustomer extends Base {
       // 根据类型生成文件名
       switch (unit.type) {
         case Const_TaskConfig.Const_Task_Type_混合类型:
-          unitFilename = `mix_type_${moment().format(Date_Format.Const_Display_By_Second)}`
+          unitFilename = `mix_type_${dayjs().format(Date_Format.Const_Display_By_Second)}`
           break
         case Const_TaskConfig.Const_Task_Type_收藏夹:
           unitFilename = `collection_type_${unit.info['id']}`

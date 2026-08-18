@@ -1,12 +1,11 @@
-import Base from '~/src/command/base'
-import knex from '~/src/library/knex'
+import Base from '../command/base'
+import knex from '../library/knex'
 import fs from 'fs'
 import path from 'path'
-import http from '~/src/library/http'
-import CommonConfig from '~/src/config/common'
+import http from '../library/http'
+import CommonConfig from '../config/common'
 import shelljs from 'shelljs'
-import { args, flags } from '@adonisjs/ace'
-import PathConfig from '~/src/config/path'
+import PathConfig from '../config/path'
 import semver from 'semver'
 
 type Type_Res_Version = {
@@ -20,7 +19,6 @@ class InitEnv extends Base {
   public static commandName = 'Init:Env'
   public static description = '初始化运行环境'
 
-  @flags.boolean({ description: '是否重建数据库' })
   rebase: boolean = false
 
   async execute() {

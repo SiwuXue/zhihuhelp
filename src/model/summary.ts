@@ -1,15 +1,15 @@
-import Base from '~/src/model/base'
+import Base from '../model/base'
 
-import * as Consts from "~/src/constant/task_config"
-import MAuthor from '~/src/model/author'
-import MAuthorAskQuestion from '~/src/model/author_ask_question'
-import MActivity from '~/src/model/activity'
-import MAnswer from '~/src/model/answer'
-import MArticle from '~/src/model/article'
-import MTopic from '~/src/model/topic'
-import MCollection from '~/src/model/collection'
-import MColumn from '~/src/model/column'
-import MPin from '~/src/model/pin'
+import * as Consts from "../constant/task_config"
+import MAuthor from '../model/author'
+import MAuthorAskQuestion from '../model/author_ask_question'
+import MActivity from '../model/activity'
+import MAnswer from '../model/answer'
+import MArticle from '../model/article'
+import MTopic from '../model/topic'
+import MCollection from '../model/collection'
+import MColumn from '../model/column'
+import MPin from '../model/pin'
 
 export type DataType = {
     key: string;

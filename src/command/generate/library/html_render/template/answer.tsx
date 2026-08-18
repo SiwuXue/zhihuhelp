@@ -1,7 +1,7 @@
 import React from 'react'
-import TypeAnswer from '~/src/type/zhihu/answer'
+import TypeAnswer from '../../../../../type/zhihu/answer'
 import lodash from 'lodash'
-import CommonUtil from '~/src/library/util/common'
+import CommonUtil from '../../../../../library/util/common'
 import CommentCompontent from './comment'
 
 export default ({ answerRecord }: { answerRecord: TypeAnswer.Record }) => {

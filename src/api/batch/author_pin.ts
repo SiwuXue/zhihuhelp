@@ -1,10 +1,10 @@
-import AuthorApi from '~/src/api/single/author'
-import MAuthorAskQuestion from '~/src/model/author_ask_question'
-import MAuthor from '~/src/model/author'
-import BatchFetchPin from '~/src/api/batch/pin'
-import Base from '~/src/api/batch/base'
-import CommonUtil from '~/src/library/util/common'
-import CommonConfig from '~/src/config/common'
+import AuthorApi from '../../api/single/author'
+import MAuthorAskQuestion from '../../model/author_ask_question'
+import MAuthor from '../../model/author'
+import BatchFetchPin from '../../api/batch/pin'
+import Base from '../../api/batch/base'
+import CommonUtil from '../../library/util/common'
+import CommonConfig from '../../config/common'
 
 class BatchFetchAuthorPin extends Base {
   async fetch(urlToken: string) {

@@ -1,4 +1,4 @@
-import CommonUtil from '~/src/library/util/common'
+import CommonUtil from '../library/util/common'
 
 export default class RequestConfig {
   // Request配置为动态配置, 需要单独进行拆分, 避免循环依赖

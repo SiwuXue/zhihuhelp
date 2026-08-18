@@ -1,5 +1,5 @@
-import Base from '~/src/api/single/base'
-import TypeActivity from '~/src/type/zhihu/activity'
+import Base from '../../api/single/base'
+import TypeActivity from '../../type/zhihu/activity'
 import dayjs from 'dayjs'
 
 class Activity extends Base {

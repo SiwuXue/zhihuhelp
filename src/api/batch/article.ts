@@ -1,7 +1,7 @@
-import ArticleApi from '~/src/api/single/article'
-import MArticle from '~/src/model/article'
+import ArticleApi from '../../api/single/article'
+import MArticle from '../../model/article'
 import lodash from 'lodash'
-import Base from '~/src/api/batch/base'
+import Base from '../../api/batch/base'
 
 class BatchFetchArticle extends Base {
   /**

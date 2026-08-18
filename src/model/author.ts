@@ -1,5 +1,5 @@
-import Base from '~/src/model/base'
-import TypeAuthor from '~/src/type/zhihu/author'
+import Base from '../model/base'
+import TypeAuthor from '../type/zhihu/author'
 
 class Author extends Base {
   static TABLE_NAME = `Author`

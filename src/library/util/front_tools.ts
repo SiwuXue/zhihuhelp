@@ -1,12 +1,12 @@
 /**
  * 集中提供前端需要的工具函数
  */
-import Type_Task_Config from '~/src/type/task_config'
-import * as Const_Task_Config from '~/src/constant/task_config'
-import AutorApi from '~/src/api/single/author'
-import TopicApi from '~/src/api/single/topic'
-import CollectionApi from '~/src/api/single/collection'
-import ColumnApi from '~/src/api/single/column'
+import Type_Task_Config from '../../type/task_config'
+import * as Const_Task_Config from '../../constant/task_config'
+import AutorApi from '../../api/single/author'
+import TopicApi from '../../api/single/topic'
+import CollectionApi from '../../api/single/collection'
+import ColumnApi from '../../api/single/column'
 
 export async function asyncGetTaskDefaultTitle(taskType: Type_Task_Config.Type_Task_Type, taskId: string) {
   let bookTitle = ''

@@ -1,5 +1,5 @@
-import Base from '~/src/api/single/base'
-import TypeAuthor from '~/src/type/zhihu/author'
+import Base from '../../api/single/base'
+import TypeAuthor from '../../type/zhihu/author'
 
 class Author extends Base {
   /**

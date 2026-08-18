@@ -1,5 +1,5 @@
-import Logger from '~/src/library/logger'
-import CommonUtil from '~/src/library/util/common'
+import Logger from '../../library/logger'
+import CommonUtil from '../../library/util/common'
 import lodash from 'lodash'
 
 class BaseBatchFetch {

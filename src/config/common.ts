@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import PathConfig from '~/src/config/path'
+import PathConfig from '../config/path'
 
 function getVersion() {
   let packageJson = fs.readFileSync(PathConfig.packageJsonUri)

@@ -1,5 +1,5 @@
-import Base from '~/src/model/base'
-import TypeColumn from '~/src/type/zhihu/column'
+import Base from '../model/base'
+import TypeColumn from '../type/zhihu/column'
 
 class Column extends Base {
   static TABLE_NAME = `Column`

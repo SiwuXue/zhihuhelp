@@ -1,5 +1,5 @@
-import Base from '~/src/model/base'
-import TypeAnswer from '~/src/type/zhihu/answer'
+import Base from '../model/base'
+import TypeAnswer from '../type/zhihu/answer'
 import lodash from 'lodash'
 
 class Answer extends Base {

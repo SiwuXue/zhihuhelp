@@ -1,6 +1,6 @@
-import Base from '~/src/api/single/base'
-import * as TypeTopic from '~/src/type/zhihu/topic'
-import TypeAnswer from '~/src/type/zhihu/answer'
+import Base from '../../api/single/base'
+import * as TypeTopic from '../../type/zhihu/topic'
+import TypeAnswer from '../../type/zhihu/answer'
 
 class Topic extends Base {
   /**

@@ -1,7 +1,7 @@
 import React from 'react'
-import TypeArticle from '~/src/type/zhihu/article'
+import TypeArticle from '../../../../../type/zhihu/article'
 import lodash from 'lodash'
-import CommonUtil from '~/src/library/util/common'
+import CommonUtil from '../../../../../library/util/common'
 import CommentCompontent from './comment'
 
 export default ({ articleRecord }: { articleRecord: TypeArticle.Record }) => {

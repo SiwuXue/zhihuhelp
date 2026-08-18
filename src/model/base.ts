@@ -1,4 +1,4 @@
-import Knex from '~/src/library/knex'
+import Knex from '../library/knex'
 
 class Base {
   static TABLE_NAME = ``
