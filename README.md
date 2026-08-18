@@ -49,24 +49,26 @@
 
 ```bash
 # 安装依赖
-pnpm install
+npm install
 
-# 构建后端
-pnpm run build
+# 构建后端（tsc 编译 + 复制非 TS 资源）
+npm run build
 
-# 构建前端
-cd client && pnpm run build
+# 构建前端（Vite）
+npm run buildgui
 
 # 启动应用
-pnpm start
+npm start
 ```
 
 ## 技术栈
 
-- Electron 23
-- React + Vite + Ant Design
-- TypeScript + Babel
-- Puppeteer (PDF 生成)
+- Electron 43
+- React 18 + Vite + Ant Design
+- TypeScript 5.9
+- dayjs
+- Puppeteer（PDF 生成）
+- Sharp（图片处理与 LaTeX 公式渲染）
 
 ## 许可证
 
