@@ -49,7 +49,7 @@
           "target": "nsis"
         }
       ],
-      "icon": "src/public/icon/icon.png"
+      "icon": "src/public/icon/icon.ico"
     },
     "mac": {
       "category": "zhihuhelp.app.category.type",

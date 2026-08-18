@@ -35,11 +35,11 @@ jobs:
         run: npm run build-without-sourcemap
       - name: Build frontend (Vite)
         run: npm run buildgui
-      - name: Build electron installer
-        run: npm run electron-builder
+      - name: Build macOS installer
+        run: npx electron-builder --mac
         env:
           CI: true
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
         id: create_release
         uses: monkeyWie/create-release@master
