@@ -65,6 +65,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: List release outputs
+        shell: bash
         run: ls -lh release/
 
       - name: Upload artifact (Windows)
