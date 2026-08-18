@@ -32,6 +32,7 @@
     "productName": "知乎助手",
     "appId": "zhihuhelp",
     "copyright": "@姚泽源",
+    "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
     "asar": false,
@@ -51,7 +52,7 @@
       "icon": "src/public/icon/icon.ico"
     },
     "mac": {
-      "category": "zhihuhelp.app.category.type",
+      "category": "public.app-category.education",
       "target": "7z",
       "icon": "src/public/icon/icon.png"
     },
@@ -93,7 +94,7 @@
     ]
   },
   "devDependencies": {
-    "@electron/osx-sign": "",
+    "@electron/osx-sign": "^2.6.2",
     "@electron/rebuild": "^3.2.10",
     "@types/adm-zip": "^0.5.0",
     "@types/archiver": "^5.3.1",
