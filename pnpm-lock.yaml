@@ -76,7 +76,7 @@ importers:
         version: 7.2.2
     devDependencies:
       '@electron/osx-sign':
-        specifier: ''
+        specifier: ^2.6.2
         version: 2.6.2
       '@electron/rebuild':
         specifier: ^3.2.10

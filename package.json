@@ -9,6 +9,7 @@
   "main": "dist/index.js",
   "author": "姚泽源",
   "license": "MIT",
+  "packageManager": "pnpm@10.14.0",
   "scripts": {
     "startgui": "node client/script/start.js",
     "buildgui": "node client/script/build.js",
