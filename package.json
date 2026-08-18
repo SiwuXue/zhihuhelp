@@ -45,7 +45,8 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "msi"
       ],
       "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
       "icon": "src/public/icon/icon.ico"
@@ -53,7 +54,8 @@
     "mac": {
       "category": "public.app-category.education",
       "target": [
-        "7z"
+        "dmg",
+        "zip"
       ],
       "artifactName": "zhihuhelp-${version}-${os}-${arch}.${ext}",
       "icon": "src/public/icon/icon.png"

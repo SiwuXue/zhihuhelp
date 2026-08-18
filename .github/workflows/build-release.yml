@@ -73,7 +73,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zhihuhelp-windows
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.msi
           if-no-files-found: error
           compression-level: 0
 
@@ -82,7 +84,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zhihuhelp-macos
-          path: release/*.7z
+          path: |
+            release/*.dmg
+            release/*.zip
           if-no-files-found: error
           compression-level: 0
 
@@ -125,12 +129,14 @@ jobs:
             - LaTeX 公式正确渲染
 
             ### 下载
-            - **Windows**: zhihuhelp-windows/*.exe
-            - **macOS**: zhihuhelp-macos/*.7z
+            - **Windows**: zhihuhelp-windows/*.exe (NSIS 安装包), zhihuhelp-windows/*.msi (MSI 安装包)
+            - **macOS**: zhihuhelp-macos/*.dmg (磁盘镜像), zhihuhelp-macos/*.zip (压缩包, 内含 .app)
           draft: false
           prerelease: false
           files: |
             artifacts/**/*.exe
-            artifacts/**/*.7z
+            artifacts/**/*.msi
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
