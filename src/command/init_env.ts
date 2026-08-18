@@ -5,7 +5,6 @@ import path from 'path'
 import http from '../library/http'
 import CommonConfig from '../config/common'
 import shelljs from 'shelljs'
-import { args, flags } from '@adonisjs/ace'
 import PathConfig from '../config/path'
 import semver from 'semver'
 
@@ -20,7 +19,6 @@ class InitEnv extends Base {
   public static commandName = 'Init:Env'
   public static description = '初始化运行环境'
 
-  @flags.boolean({ description: '是否重建数据库' })
   rebase: boolean = false
 
   async execute() {

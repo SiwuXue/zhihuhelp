@@ -4,7 +4,7 @@ import RequestConfig from './config/request'
 import PathConfig from './config/path'
 import CommonUtil from './library/util/common'
 import Logger from './library/logger'
-import { Ignitor } from '@adonisjs/core/build/standalone'
+import CommandRegistry from './command/registry'
 import * as FrontTools from './library/util/front_tools'
 import { setBridgeFunc } from './library/zhihu_encrypt/index'
 import * as Type_TaskConfig from './type/task_config'
@@ -12,18 +12,10 @@ import MSummary from './model/summary'
 import http from './library/http'
 import fs from 'fs'
 import path from 'path'
-import JSON5 from 'json5'
 
+// 初始化命令注册表
+CommandRegistry.init()
 
-// 项目初始化时, 自动生成 .adonisrc.json 文件
-const adonisRcUri = path.resolve(__dirname, '.adonisrc.json')
-const adonisRcTemplateUri = path.resolve(__dirname, 'adonisrc.json')
-const adonisRcContent = fs.readFileSync(adonisRcTemplateUri).toString()
-const adonisRcConfig = JSON5.parse(adonisRcContent)
-fs.writeFileSync(adonisRcUri, JSON.stringify(adonisRcConfig, null, 2))
-
-const Const_Current_Path = path.resolve(__dirname)
-let ace = new Ignitor(Const_Current_Path).ace()
 let argv = process.argv
 let isDebug = argv.includes('--zhihuhelp-debug')
 let { app, BrowserWindow, ipcMain, session, shell } = Electron
@@ -248,15 +240,13 @@ app.whenReady().then(() => {
 
     // 此后操作均为异步操作, 无需等待
 
-    Logger.log(`初始化ace命令集`)
-    await ace.handle(['generate:manifest'])
     Logger.log(`初始化运行环境`)
-    await ace.handle(['Init:Env'])
+    await CommandRegistry.handle(['Init:Env'])
 
     Logger.log(`开始抓取数据`)
-    await ace.handle(['Fetch:Customer'])
+    await CommandRegistry.handle(['Fetch:Customer'])
     Logger.log(`开始生成电子书`)
-    await ace.handle(['Generate:Customer'])
+    await CommandRegistry.handle(['Generate:Customer'])
     Logger.log(`所有任务执行完毕, 打开电子书文件夹 => `, PathConfig.outputPath)
     // 输出打开文件夹
     shell.showItemInFolder(PathConfig.outputPath)
