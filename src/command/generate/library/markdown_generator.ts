@@ -31,10 +31,6 @@ class MarkdownGenerator {
     // 存储从 HTML 中提取的图片 URL
     private imgUrlList: string[] = []
 
-    get markdownCachePath() {
-        return path.resolve(PathConfig.cachePath, 'markdown', this.bookname)
-    }
-
     get markdownOutputPath() {
         return path.resolve(PathConfig.outputPath, 'markdown')
     }
@@ -64,12 +60,10 @@ class MarkdownGenerator {
      * 初始化静态资源目录
      */
     private initStaticResource() {
-        // 删除旧目录
-        shelljs.rm('-rf', this.markdownCachePath)
+        // 删除旧输出目录
         shelljs.rm('-rf', this.markdownOutputPathUri)
 
         // 创建新目录
-        shelljs.mkdir('-p', this.markdownCachePath)
         shelljs.mkdir('-p', this.markdownOutputPath)
         shelljs.mkdir('-p', this.markdownOutputPathUri)
         shelljs.mkdir('-p', this.imageOutputPath)
@@ -251,7 +245,19 @@ class MarkdownGenerator {
                 return node.nodeName === 'IMG' && node.classList && node.classList.contains('eeimg')
             },
             replacement: (content: string, node: any) => {
-                const alt = node.getAttribute('alt') || ''
+                // 优先从 alt 属性获取公式文本
+                let alt = node.getAttribute('alt') || ''
+                // 如果 alt 为空，尝试从 data-actualsrc 或 src 中提取 LaTeX
+                if (!alt) {
+                    const src = node.getAttribute('data-actualsrc') || node.getAttribute('src') || ''
+                    if (this.isLatexEquationUrl(src)) {
+                        alt = this.extractLatexFromUrl(src)
+                    }
+                }
+                // 没有公式内容则返回空，避免生成 $$$$ 等无效语法
+                if (!alt) {
+                    return ''
+                }
                 // 如果是行内公式，使用 $...$
                 // 如果是块级公式，使用 $$...$$
                 const parentNodeName = node.parentNode?.nodeName || ''
@@ -280,8 +286,15 @@ class MarkdownGenerator {
         turndown.addRule('image', {
             filter: 'img',
             replacement: (content: string, node: any) => {
-                const src = node.getAttribute('src') || ''
-                const alt = node.getAttribute('alt') || ''
+                // 与 extractImageUrls 保持一致的 URL 优先级：data-actualsrc > data-original > src
+                // 修复之前只用 src 导致下载的图片与 markdown 引用的图片不一致的问题
+                let src = node.getAttribute('data-actualsrc') || ''
+                if (!src) {
+                    src = node.getAttribute('data-original') || ''
+                }
+                if (!src) {
+                    src = node.getAttribute('src') || ''
+                }
 
                 // 跳过 LaTeX 公式图片（已在上面的规则中处理）
                 if (node.classList && node.classList.contains('eeimg')) {
@@ -301,13 +314,18 @@ class MarkdownGenerator {
                     }
                 }
 
+                // 跳过 data:image 和空 src
+                if (!src || src.startsWith('data:image')) {
+                    return ''
+                }
+
                 // 提取文件名
                 const filename = this.getImageFilename(src)
                 if (!filename) {
-                    return `![${alt}](${src})`
+                    return ''
                 }
-                // 转换为相对路径
-                return `![${alt}](./images/${filename})`
+                // 转换为相对路径，清空 alt 内容（知乎图片 alt 多为"查看图片"等无意义文字）
+                return `![](./images/${filename})`
             },
         })
 

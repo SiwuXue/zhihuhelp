@@ -31,6 +31,7 @@ import MarkdownGenerator from './library/markdown_generator'
 import PdfGenerator from './library/pdf_generator'
 import moment from 'moment'
 import { ReactElement } from 'react'
+import shelljs from 'shelljs'
 
 /**
  * 生成html
@@ -128,6 +129,14 @@ class GenerateCustomer extends Base {
       this.log(`电子书:${bookname}输出完毕`)
     }
     this.log(`所有电子书输出完毕`)
+
+    // 清理中间缓存目录，只保留全局图片缓存和最终输出文件
+    this.log(`开始清理中间缓存目录`)
+    // htmlCachePath: EPUB 和 PDF 生成过程中的 HTML/图片临时目录
+    shelljs.rm('-rf', PathConfig.htmlCachePath)
+    // epubCachePath: EPUB 生成过程中的临时打包目录
+    shelljs.rm('-rf', PathConfig.epubCachePath)
+    this.log(`中间缓存目录清理完毕`)
     // 全部完成后打开文件夹
   }
 
