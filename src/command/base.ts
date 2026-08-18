@@ -1,7 +1,7 @@
 import { BaseCommand, args, flags } from '@adonisjs/ace'
 import { CommandSettings } from '@adonisjs/ace/build/src/Contracts'
 import lodash from 'lodash'
-import logger from '~/src/library/logger'
+import logger from '../library/logger'
 
 class Base extends BaseCommand {
   public static commandName = 'Command:Base'

@@ -1,11 +1,11 @@
-import CollectionApi from '~/src/api/single/collection'
-import MCollection from '~/src/model/collection'
-import Base from '~/src/api/batch/base'
-import CommonUtil from '~/src/library/util/common'
-import BatchFetchAnswer from '~/src/api/batch/answer'
-import BatchFetchPin from '~/src/api/batch/pin'
-import BatchFetchArticle from '~/src/api/batch/article'
-import Logger from '~/src/library/logger'
+import CollectionApi from '../../api/single/collection'
+import MCollection from '../../model/collection'
+import Base from '../../api/batch/base'
+import CommonUtil from '../../library/util/common'
+import BatchFetchAnswer from '../../api/batch/answer'
+import BatchFetchPin from '../../api/batch/pin'
+import BatchFetchArticle from '../../api/batch/article'
+import Logger from '../../library/logger'
 
 class BatchFetchCollection extends Base {
   async fetch(id: string) {

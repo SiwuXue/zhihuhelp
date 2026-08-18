@@ -1,6 +1,6 @@
-import Base from '~/src/api/single/base'
-import TypeColumn from '~/src/type/zhihu/column'
-import TypeArticleExcerpt from '~/src/type/zhihu/article_excerpt'
+import Base from '../../api/single/base'
+import TypeColumn from '../../type/zhihu/column'
+import TypeArticleExcerpt from '../../type/zhihu/article_excerpt'
 
 class Column extends Base {
   /**

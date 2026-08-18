@@ -1,4 +1,4 @@
-import * as Platform_Consts from '~/src/resource/const/platform'
+import * as Platform_Consts from '../../resource/const/platform'
 
 // 环境下对应的host地址
 export const Const_Host = 'https://www.zhihu.com'

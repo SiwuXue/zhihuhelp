@@ -1,15 +1,15 @@
 import * as Consts from '../const/index'
-import * as Types from '~/src/type/task_config'
+import * as Types from '../../../../type/task_config'
 
-import * as Type_Activity from '~/src/type/zhihu/activity'
-import * as Type_Answer from '~/src/type/zhihu/answer'
-import * as Type_Article from '~/src/type/zhihu/article'
-import * as Type_Author from '~/src/type/zhihu/author'
-import * as Type_Collection from '~/src/type/zhihu/collection'
-import * as Type_Column from '~/src/type/zhihu/column'
-import * as Type_Pin from '~/src/type/zhihu/pin'
-import * as Type_Question from '~/src/type/zhihu/question'
-import * as Type_Topic from '~/src/type/zhihu/topic'
+import * as Type_Activity from '../../../../type/zhihu/activity'
+import * as Type_Answer from '../../../../type/zhihu/answer'
+import * as Type_Article from '../../../../type/zhihu/article'
+import * as Type_Author from '../../../../type/zhihu/author'
+import * as Type_Collection from '../../../../type/zhihu/collection'
+import * as Type_Column from '../../../../type/zhihu/column'
+import * as Type_Pin from '../../../../type/zhihu/pin'
+import * as Type_Question from '../../../../type/zhihu/question'
+import * as Type_Topic from '../../../../type/zhihu/topic'
 
 // 基本设计思路
 // 页的上一级是单元, 每个单元的顺序为: 单元信息页 + 后续问题/文章/想法页

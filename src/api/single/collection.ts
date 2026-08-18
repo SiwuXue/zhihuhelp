@@ -1,5 +1,5 @@
-import Base from '~/src/api/single/base'
-import * as TypeCollection from '~/src/type/zhihu/collection'
+import Base from '../../api/single/base'
+import * as TypeCollection from '../../type/zhihu/collection'
 
 class Collection extends Base {
   /**

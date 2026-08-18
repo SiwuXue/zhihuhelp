@@ -1,5 +1,5 @@
 // 任务相关配置
-import * as Type_TaskConfig from '~/src/type/task_config'
+import * as Type_TaskConfig from '../type/task_config'
 
 // 常量类别并不多, 因此可以集中编写, 不用额外拆分
 

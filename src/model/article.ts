@@ -1,5 +1,5 @@
-import Base from '~/src/model/base'
-import TypeArticle from '~/src/type/zhihu/article'
+import Base from '../model/base'
+import TypeArticle from '../type/zhihu/article'
 import lodash from 'lodash'
 
 class Article extends Base {

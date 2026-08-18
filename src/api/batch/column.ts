@@ -1,9 +1,9 @@
-import ColumnApi from '~/src/api/single/column'
-import MColumn from '~/src/model/column'
-import Base from '~/src/api/batch/base'
-import CommonUtil from '~/src/library/util/common'
-import BatchFetchArticle from '~/src/api/batch/article'
-import Logger from '~/src/library/logger'
+import ColumnApi from '../../api/single/column'
+import MColumn from '../../model/column'
+import Base from '../../api/batch/base'
+import CommonUtil from '../../library/util/common'
+import BatchFetchArticle from '../../api/batch/article'
+import Logger from '../../library/logger'
 
 class BatchFetchColumn extends Base {
   async fetch(id: string) {

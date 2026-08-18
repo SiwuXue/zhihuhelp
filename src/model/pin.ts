@@ -1,5 +1,5 @@
-import Base from '~/src/model/base'
-import * as TypePin from '~/src/type/zhihu/pin'
+import Base from '../model/base'
+import * as TypePin from '../type/zhihu/pin'
 import lodash from 'lodash'
 
 class Pin extends Base {

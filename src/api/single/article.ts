@@ -1,5 +1,5 @@
-import Base from '~/src/api/single/base'
-import TypeArticle from '~/src/type/zhihu/article'
+import Base from '../../api/single/base'
+import TypeArticle from '../../type/zhihu/article'
 
 class Article extends Base {
   /**

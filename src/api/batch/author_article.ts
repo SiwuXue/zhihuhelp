@@ -1,9 +1,9 @@
-import AuthorApi from '~/src/api/single/author'
-import MAuthor from '~/src/model/author'
-import BatchFetchArticle from '~/src/api/batch/article'
-import Base from '~/src/api/batch/base'
-import CommonUtil from '~/src/library/util/common'
-import CommonConfig from '~/src/config/common'
+import AuthorApi from '../../api/single/author'
+import MAuthor from '../../model/author'
+import BatchFetchArticle from '../../api/batch/article'
+import Base from '../../api/batch/base'
+import CommonUtil from '../../library/util/common'
+import CommonConfig from '../../config/common'
 
 class BatchFetchAuthorArticle extends Base {
   async fetch(urlToken: string) {

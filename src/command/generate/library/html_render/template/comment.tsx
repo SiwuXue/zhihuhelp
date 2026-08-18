@@ -1,6 +1,6 @@
 import React from 'react'
 import moment from 'moment'
-import * as DATE_FORMAT from '~/src/constant/date_format'
+import * as DATE_FORMAT from '../../../../../constant/date_format'
 
 export default (props: { agreeCount: number; commentCount: number; createAt: number; updateAt: number }) => {
   return (

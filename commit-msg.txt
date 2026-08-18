@@ -1,0 +1,6 @@
+refactor: replace babel-plugin-root-import with relative paths
+
+- Remove babel-plugin-root-import dependency from .babelrc
+- Replace all ~/src/ path aliases with correct relative paths across 65 files
+- Eliminates need for post-build path fixing scripts
+- Build output now works correctly without manual intervention

@@ -1,8 +1,8 @@
-import QuestionApi from '~/src/api/single/question'
+import QuestionApi from '../../api/single/question'
 import lodash from 'lodash'
-import BatchFetchAnswer from '~/src/api/batch/answer'
-import Base from '~/src/api/batch/base'
-import CommonUtil from '~/src/library/util/common'
+import BatchFetchAnswer from '../../api/batch/answer'
+import Base from '../../api/batch/base'
+import CommonUtil from '../../library/util/common'
 
 class BatchFetchQuestion extends Base {
   /**

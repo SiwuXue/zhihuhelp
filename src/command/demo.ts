@@ -1,4 +1,4 @@
-import Base from '~/src/command/base'
+import Base from '../command/base'
 import { args, flags } from '@adonisjs/ace'
 
 class CommandDemo extends Base {
