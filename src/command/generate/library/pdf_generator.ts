@@ -10,7 +10,7 @@ import http from '../../../library/http'
 import md5 from 'md5'
 import url from 'url'
 import lodash from 'lodash'
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString, PDFNumber, PDFArray, PDFDict, PDFRef } from 'pdf-lib'
 import * as Type_TaskConfig from '../../../type/task_config'
 
 const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -444,9 +444,8 @@ class PdfGenerator {
     // 处理 HTML：清理 + 替换图片地址为本地路径
     let processedHtml = this.processHtmlContent(html)
 
-    // 注入图片自适应样式，避免大图超出页面宽度被裁切（只显示左边）
-    const responsiveStyle = '<style>img{max-width:100% !important;height:auto !important;}</style>'
-    processedHtml = processedHtml.replace(/<\/head>/i, responsiveStyle + '</head>')
+    // 内联 CSS 样式 + 图片自适应，避免相对路径 CSS 失效和大图被裁切
+    processedHtml = this.inlineStylesForPdf(processedHtml)
 
     // 下载所有图片（包括 LaTeX 公式图片）
     await this.downloadAllImages()
@@ -522,23 +521,183 @@ class PdfGenerator {
   }
 
   /**
-   * 用 pdf-lib 合并多个 PDF 为一个 PDF
+   * 用 pdf-lib 合并多个 PDF 为一个 PDF，并重建书签（outline）
    */
   async mergePdfs(pdfPathList: string[], outputPath: string): Promise<void> {
     const mergedPdf = await PDFDocument.create()
+    let pageOffset = 0
+    let bookmarkList: Array<{ title: string; pageIndex: number }> = []
+
     for (let pdfPath of pdfPathList) {
       if (!fs.existsSync(pdfPath)) {
         continue
       }
       const srcBytes = fs.readFileSync(pdfPath)
       const srcPdf = await PDFDocument.load(srcBytes)
+
+      // 读取该批 PDF 的书签（批内页码），并平移到合并后的全局页码
+      for (let bookmark of this.readOutline(srcPdf)) {
+        bookmarkList.push({
+          title: bookmark.title,
+          pageIndex: bookmark.pageIndex + pageOffset,
+        })
+      }
+
       const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices())
       for (let page of copiedPages) {
         mergedPdf.addPage(page)
       }
+
+      pageOffset += srcPdf.getPageCount()
     }
+
+    // 重建书签
+    this.addOutlines(mergedPdf, bookmarkList)
+
     const mergedBytes = await mergedPdf.save()
     fs.writeFileSync(outputPath, mergedBytes)
+  }
+
+  /**
+   * 读取 PDF 的顶层书签（outline），返回 [{ title, pageIndex }]
+   */
+  private readOutline(pdf: PDFDocument): Array<{ title: string; pageIndex: number }> {
+    const result: Array<{ title: string; pageIndex: number }> = []
+    const context = pdf.context
+
+    // 建立 ref 标识 -> 页码 的映射
+    const refToIndex = new Map<string, number>()
+    pdf.getPages().forEach((page, index) => {
+      refToIndex.set(`${page.ref.objectNumber}-${page.ref.generationNumber}`, index)
+    })
+
+    const outlinesRef = pdf.catalog.lookupMaybe(PDFName.of('Outlines'), PDFRef)
+    if (!outlinesRef) {
+      return result
+    }
+
+    const outlineRoot = context.lookupMaybe(outlinesRef, PDFDict)
+    if (!outlineRoot) {
+      return result
+    }
+
+    let firstRef = outlineRoot.lookupMaybe(PDFName.of('First'), PDFRef)
+    while (firstRef) {
+      const item = context.lookupMaybe(firstRef, PDFDict)
+      if (!item) {
+        break
+      }
+
+      const title = item.lookupMaybe(PDFName.of('Title'), PDFString)?.decodeText() ?? ''
+      const dest = item.lookup(PDFName.of('Dest'))
+      let pageIndex = -1
+      if (dest instanceof PDFArray) {
+        const pageRef = dest.lookupMaybe(0, PDFRef)
+        if (pageRef) {
+          pageIndex = refToIndex.get(`${pageRef.objectNumber}-${pageRef.generationNumber}`) ?? -1
+        }
+      }
+
+      if (pageIndex >= 0) {
+        result.push({ title, pageIndex })
+      }
+
+      firstRef = item.lookupMaybe(PDFName.of('Next'), PDFRef)
+    }
+
+    return result
+  }
+
+  /**
+   * 用 pdf-lib 底层 API 给 PDF 添加顶层书签（扁平 outline）
+   */
+  private addOutlines(pdf: PDFDocument, bookmarkList: Array<{ title: string; pageIndex: number }>): void {
+    if (bookmarkList.length === 0) {
+      return
+    }
+
+    const context = pdf.context
+    const pages = pdf.getPages()
+
+    // 1. 创建每个书签的 outline item dict（暂不注册）
+    const itemDictList: PDFDict[] = []
+    for (let bookmark of bookmarkList) {
+      const page = pages[bookmark.pageIndex]
+      if (!page) {
+        continue
+      }
+
+      const dest = PDFArray.withContext(context)
+      dest.push(page.ref)
+      dest.push(PDFName.of('XYZ'))
+      dest.push(context.obj(null))
+      dest.push(context.obj(null))
+      dest.push(context.obj(null))
+
+      const itemDict = PDFDict.withContext(context)
+      itemDict.set(PDFName.of('Title'), PDFString.of(bookmark.title))
+      itemDict.set(PDFName.of('Dest'), dest)
+      itemDictList.push(itemDict)
+    }
+
+    if (itemDictList.length === 0) {
+      return
+    }
+
+    // 2. 注册 item，得到 refs
+    const itemRefList = itemDictList.map((itemDict) => context.register(itemDict))
+
+    // 3. 创建并注册 outline 根节点
+    const outlineRoot = PDFDict.withContext(context)
+    outlineRoot.set(PDFName.of('Type'), PDFName.of('Outlines'))
+    const outlineRootRef = context.register(outlineRoot)
+
+    // 4. 设置每个 item 的 Parent / Prev / Next
+    for (let i = 0; i < itemRefList.length; i++) {
+      const itemDict = context.lookup(itemRefList[i], PDFDict)
+      itemDict.set(PDFName.of('Parent'), outlineRootRef)
+      if (i > 0) {
+        itemDict.set(PDFName.of('Prev'), itemRefList[i - 1])
+      }
+      if (i < itemRefList.length - 1) {
+        itemDict.set(PDFName.of('Next'), itemRefList[i + 1])
+      }
+    }
+
+    // 5. 设置根节点的 First / Last / Count
+    outlineRoot.set(PDFName.of('First'), itemRefList[0])
+    outlineRoot.set(PDFName.of('Last'), itemRefList[itemRefList.length - 1])
+    outlineRoot.set(PDFName.of('Count'), PDFNumber.of(itemRefList.length))
+
+    // 6. 挂到 catalog
+    pdf.catalog.set(PDFName.of('Outlines'), outlineRootRef)
+    pdf.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'))
+  }
+
+  /**
+   * 内联 CSS 样式到 HTML，并注入图片自适应样式。
+   * PDF 生成的单页 HTML 中 CSS 相对路径（../css/）会失效，因此改为内联。
+   */
+  private inlineStylesForPdf(html: string): string {
+    const cssFiles = ['normalize.css', 'markdown.css', 'customer.css', 'bootstrap.css']
+    let cssContent = ''
+    for (let filename of cssFiles) {
+      const cssPath = path.resolve(PathConfig.resourcePath, 'css', filename)
+      if (fs.existsSync(cssPath)) {
+        cssContent += fs.readFileSync(cssPath, 'utf-8') + '\n'
+      }
+    }
+    // 图片自适应，避免大图超出页面宽度被裁切
+    cssContent += 'img{max-width:100% !important;height:auto !important;}\n'
+
+    // 移除外部样式表引用
+    html = html.replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, '')
+
+    // 内联样式
+    if (cssContent) {
+      html = html.replace(/<\/head>/i, `<style>${cssContent}</style></head>`)
+    }
+    return html
   }
 
   /**
@@ -550,11 +709,10 @@ class PdfGenerator {
       return
     }
 
-    // 1. 处理每批 HTML（替换图片为 file:// 路径，图片 URL 累积到图片池），并注入图片自适应样式
-    const responsiveStyle = '<style>img{max-width:100% !important;height:auto !important;}</style>'
+    // 1. 处理每批 HTML（替换图片为 file:// 路径，图片 URL 累积到图片池），并内联 CSS
     let processedHtmlList = htmlList.map((html) => {
       let processed = this.processHtmlContent(html)
-      return processed.replace(/<\/head>/i, responsiveStyle + '</head>')
+      return this.inlineStylesForPdf(processed)
     })
 
     // 2. 一次性下载所有图片
