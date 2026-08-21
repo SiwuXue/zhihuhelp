@@ -27,6 +27,7 @@ const Const_Zhihu_Img_CDN_List = [
 class MarkdownGenerator {
     bookname = ''
     imageQuilty: Type_TaskConfig.Type_Image_Quilty = 'hd'
+    watermark: string = ''
 
     // 存储从 HTML 中提取的图片 URL
     private imgUrlList: string[] = []
@@ -49,9 +50,10 @@ class MarkdownGenerator {
 
     private turndownService: TurndownService
 
-    constructor({ bookname, imageQuilty }: { bookname: string; imageQuilty: Type_TaskConfig.Type_Image_Quilty }) {
+    constructor({ bookname, imageQuilty, watermark = '' }: { bookname: string; imageQuilty: Type_TaskConfig.Type_Image_Quilty; watermark?: string }) {
         this.bookname = bookname
         this.imageQuilty = imageQuilty
+        this.watermark = watermark
         this.initStaticResource()
         this.turndownService = this.createTurndownService()
     }
@@ -402,6 +404,9 @@ class MarkdownGenerator {
      * 保存 Markdown 文件
      */
     saveMarkdownFile(filename: string, content: string) {
+        if (this.watermark) {
+            content += `\n\n---\n\n> ${this.watermark}\n`
+        }
         const filePath = path.resolve(this.markdownOutputPathUri, `${filename}.md`)
         fs.writeFileSync(filePath, content, 'utf-8')
         logger.log(`[MarkdownGenerator] 已保存: ${filePath}`)
@@ -506,6 +511,9 @@ class MarkdownGenerator {
         }
 
         // 保存合并版
+        if (this.watermark) {
+            mergedContent += `\n\n---\n\n> ${this.watermark}\n`
+        }
         const mergedPath = path.resolve(this.markdownOutputPathUri, `${this.bookname}.md`)
         fs.writeFileSync(mergedPath, mergedContent, 'utf-8')
         logger.log(`[MarkdownGenerator] 合并版 Markdown 已保存: ${mergedPath}`)

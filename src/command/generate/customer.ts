@@ -104,6 +104,7 @@ class GenerateCustomer extends Base {
 
       let needGenerateEpub = exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)
       let needGenerateHtml = exportFormat.includes(Const_TaskConfig.Const_Export_Format_HTML)
+      let watermark = generateConfig.comment || ''
 
       // 生成 EPUB / HTML（二者共用同一套 HTML 内容生成流程）
       if (needGenerateEpub || needGenerateHtml) {
@@ -112,6 +113,7 @@ class GenerateCustomer extends Base {
           imageQuilty,
           needGenerateEpub,
           needGenerateHtml,
+          watermark,
         })
       }
 
@@ -120,6 +122,7 @@ class GenerateCustomer extends Base {
         await this.generateMarkdown({
           epubColumn,
           imageQuilty,
+          watermark,
         })
       }
 
@@ -128,6 +131,7 @@ class GenerateCustomer extends Base {
         await this.generatePdf({
           epubColumn,
           imageQuilty,
+          watermark,
         })
       }
 
@@ -1120,11 +1124,13 @@ class GenerateCustomer extends Base {
     epubColumn,
     needGenerateEpub = true,
     needGenerateHtml = false,
+    watermark = '',
   }: {
     imageQuilty: TypeTaskConfig.Type_Image_Quilty
     epubColumn: Package.Ebook_Column
     needGenerateEpub?: boolean
     needGenerateHtml?: boolean
+    watermark?: string
   }) {
     // 初始化资源, 重置所有静态类变量
 
@@ -1133,6 +1139,7 @@ class GenerateCustomer extends Base {
       imageQuilty,
       needGenerateEpub,
       needGenerateHtml,
+      watermark,
     })
 
     // 单独记录生成的元素, 以便输出成单页
@@ -1190,13 +1197,15 @@ class GenerateCustomer extends Base {
   async generateMarkdown({
     imageQuilty,
     epubColumn,
+    watermark = '',
   }: {
     imageQuilty: TypeTaskConfig.Type_Image_Quilty
     epubColumn: Package.Ebook_Column
+    watermark?: string
   }) {
     this.log(`开始生成 Markdown: ${epubColumn.bookname}`)
 
-    let markdownGenerator = new MarkdownGenerator({ bookname: epubColumn.bookname, imageQuilty })
+    let markdownGenerator = new MarkdownGenerator({ bookname: epubColumn.bookname, imageQuilty, watermark })
 
     // 收集所有页面内容
     let pages: Array<{
@@ -1300,13 +1309,15 @@ class GenerateCustomer extends Base {
   async generatePdf({
     imageQuilty,
     epubColumn,
+    watermark = '',
   }: {
     imageQuilty: TypeTaskConfig.Type_Image_Quilty
     epubColumn: Package.Ebook_Column
+    watermark?: string
   }) {
     this.log(`开始生成 PDF: ${epubColumn.bookname}`)
 
-    let pdfGenerator = new PdfGenerator({ bookname: epubColumn.bookname, imageQuilty })
+    let pdfGenerator = new PdfGenerator({ bookname: epubColumn.bookname, imageQuilty, watermark })
     await pdfGenerator.init()
 
     // 分批生成 HTML，避免单个超大 HTML（大量图片）导致 Chrome 内存不足崩溃

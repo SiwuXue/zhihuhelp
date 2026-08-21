@@ -108,6 +108,7 @@ class EpubGenerator {
   imageQuilty: Type_TaskConfig.Type_Image_Quilty = 'hd'
   needGenerateEpub: boolean = true
   needGenerateHtml: boolean = false
+  watermark: string = ''
 
   imgUriPool: Map<TypeSrc2Download, ImgItem> = new Map()
 
@@ -168,16 +169,19 @@ class EpubGenerator {
     imageQuilty,
     needGenerateEpub = true,
     needGenerateHtml = false,
+    watermark = '',
   }: {
     bookname: string
     imageQuilty: Type_TaskConfig.Type_Image_Quilty
     needGenerateEpub?: boolean
     needGenerateHtml?: boolean
+    watermark?: string
   }) {
     this.bookname = bookname
     this.imageQuilty = imageQuilty
     this.needGenerateEpub = needGenerateEpub
     this.needGenerateHtml = needGenerateHtml
+    this.watermark = watermark
     // 必须要先处理静态资源, 否则创建出的Epub缓存目录会被删除
     this.initStaticRecource()
 
@@ -388,6 +392,19 @@ class EpubGenerator {
       return this.utilReplaceImgSrc(value)
     })
     content = tinyContentList.join(`<div data-key='single-page'`)
+
+    // 注入水印（备注字段），以固定定位斜向半透明文字展示
+    if (this.watermark) {
+      const escapedWatermark = this.watermark
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+      const watermarkHtml =
+        `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);` +
+        `font-size:40px;color:rgba(0,0,0,0.08);pointer-events:none;white-space:nowrap;z-index:9999;">${escapedWatermark}</div>`
+      content = content.replace(/<\/body>/i, watermarkHtml + '</body>')
+    }
+
     return content
   }
 

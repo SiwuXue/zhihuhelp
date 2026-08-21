@@ -10,7 +10,7 @@ import http from '../../../library/http'
 import md5 from 'md5'
 import url from 'url'
 import lodash from 'lodash'
-import { PDFDocument, PDFName, PDFString, PDFNumber, PDFArray, PDFDict, PDFRef } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString, PDFNumber, PDFArray, PDFDict, PDFRef, StandardFonts, rgb, degrees } from 'pdf-lib'
 import * as Type_TaskConfig from '../../../type/task_config'
 
 const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -28,6 +28,7 @@ const Const_Zhihu_Img_CDN_List = [
 class PdfGenerator {
   bookname: string = ''
   imageQuilty: Type_TaskConfig.Type_Image_Quilty = 'hd'
+  watermark: string = ''
 
   // 普通图片 URL 池：原始 URL -> 本地文件名
   private imgUrlPool: Map<string, string> = new Map()
@@ -61,9 +62,10 @@ class PdfGenerator {
     return PathConfig.imgCachePath
   }
 
-  constructor(props: { bookname: string; imageQuilty: Type_TaskConfig.Type_Image_Quilty }) {
+  constructor(props: { bookname: string; imageQuilty: Type_TaskConfig.Type_Image_Quilty; watermark?: string }) {
     this.bookname = props.bookname
     this.imageQuilty = props.imageQuilty
+    this.watermark = props.watermark || ''
   }
 
   async init() {
@@ -554,6 +556,11 @@ class PdfGenerator {
     // 重建书签
     this.addOutlines(mergedPdf, bookmarkList)
 
+    // 添加水印
+    if (this.watermark) {
+      await this.addWatermark(mergedPdf, this.watermark)
+    }
+
     const mergedBytes = await mergedPdf.save()
     fs.writeFileSync(outputPath, mergedBytes)
   }
@@ -672,6 +679,35 @@ class PdfGenerator {
     // 6. 挂到 catalog
     pdf.catalog.set(PDFName.of('Outlines'), outlineRootRef)
     pdf.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'))
+  }
+
+  /**
+   * 用 pdf-lib 给 PDF 每页叠加斜向半透明文字水印
+   */
+  private async addWatermark(pdf: PDFDocument, text: string): Promise<void> {
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    const pages = pdf.getPages()
+
+    for (let page of pages) {
+      const { width, height } = page.getSize()
+      const fontSize = 48
+      const textWidth = font.widthOfTextAtSize(text, fontSize)
+      const textHeight = font.heightAtSize(fontSize)
+
+      // 居中并旋转 45 度
+      const x = (width - textWidth) / 2
+      const y = (height - textHeight) / 2
+
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.75, 0.75, 0.75),
+        opacity: 0.35,
+        rotate: degrees(45),
+      })
+    }
   }
 
   /**
