@@ -102,11 +102,16 @@ class GenerateCustomer extends Base {
       let exportFormat = generateConfig.exportFormat || Const_TaskConfig.Const_Default_Export_Format_List
       this.log(`输出电子书:${bookname}, 格式:${exportFormat.join(',')}`)
 
-      // 生成 EPUB
-      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)) {
+      let needGenerateEpub = exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)
+      let needGenerateHtml = exportFormat.includes(Const_TaskConfig.Const_Export_Format_HTML)
+
+      // 生成 EPUB / HTML（二者共用同一套 HTML 内容生成流程）
+      if (needGenerateEpub || needGenerateHtml) {
         await this.generateEpub({
           epubColumn,
           imageQuilty,
+          needGenerateEpub,
+          needGenerateHtml,
         })
       }
 
@@ -1113,13 +1118,22 @@ class GenerateCustomer extends Base {
   async generateEpub({
     imageQuilty,
     epubColumn,
+    needGenerateEpub = true,
+    needGenerateHtml = false,
   }: {
     imageQuilty: TypeTaskConfig.Type_Image_Quilty
     epubColumn: Package.Ebook_Column
+    needGenerateEpub?: boolean
+    needGenerateHtml?: boolean
   }) {
     // 初始化资源, 重置所有静态类变量
 
-    let epubGenerator = new EpubGenerator({ bookname: epubColumn.bookname, imageQuilty })
+    let epubGenerator = new EpubGenerator({
+      bookname: epubColumn.bookname,
+      imageQuilty,
+      needGenerateEpub,
+      needGenerateHtml,
+    })
 
     // 单独记录生成的元素, 以便输出成单页
     let ele4SinglePageList: ReactElement[] = []

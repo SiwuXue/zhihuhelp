@@ -35,6 +35,35 @@ npm run dev            # Start Vite dev server
 npm run build          # Build for production
 ```
 
+## 本地启动（开发模式）
+
+改完代码后，本地调试需要两个终端，按顺序启动：
+
+1. 编译主进程（`src/` -> `dist/`，实际使用 `tsc` 编译）：
+
+```bash
+npm run build
+```
+
+2. 启动前端 Vite dev server（终端 A，长驻，监听 8080）：
+
+```bash
+npm run startgui
+```
+
+3. 启动 Electron（终端 B，长驻）：
+
+```bash
+npm run start
+```
+
+端口与顺序说明：
+
+- `npm run start` 会以 `--zhihuhelp-debug` 启动 Electron，此时主窗口硬编码加载 `http://localhost:8080`（见 `src/index.ts`）。
+- 因此必须先启动前端并让 Vite 占用 8080，再启动 Electron，否则窗口会白屏。
+- 若 8080 已被其它进程占用，Vite 会自动改用 8081，导致 Electron 白屏。启动前请确保 8080 空闲（如存在残留 vite 进程，先停掉）。
+- 前端代码未改动时，可直接复用已在 8080 运行的 Vite dev server，无需重复启动。
+
 ## Code Style
 - **Prettier**: No semicolons, single quotes, trailing commas, 120 char line width
 - **ESLint**: Disabled `@typescript-eslint/no-unused-vars` and `no-unused-vars`
