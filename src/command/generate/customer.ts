@@ -1309,22 +1309,35 @@ class GenerateCustomer extends Base {
     let pdfGenerator = new PdfGenerator({ bookname: epubColumn.bookname, imageQuilty })
     await pdfGenerator.init()
 
+    // 分批生成 HTML，避免单个超大 HTML（大量图片）导致 Chrome 内存不足崩溃
+    const BATCH_SIZE = 15
     let ele4SinglePageList: ReactElement[] = []
+    let htmlBatchList: string[] = []
 
-    for (let unit of epubColumn.unitList) {
-      let { filename, title, html, ele4SinglePage: unitEle4SinglePage } = this.generateUnitInfoHtml(unit)
-      ele4SinglePageList.push(unitEle4SinglePage)
-
-      for (let page of unit.pageList) {
-        let { filename, title, html, ele4SinglePage: pageEle4SinglePage } = this.generatePageHtml(page)
-        ele4SinglePageList.push(pageEle4SinglePage)
+    const flushBatch = () => {
+      if (ele4SinglePageList.length > 0) {
+        htmlBatchList.push(this.generateSinglePageHtml(ele4SinglePageList))
+        ele4SinglePageList = []
       }
     }
 
-    let singlePageContent = this.generateSinglePageHtml(ele4SinglePageList)
+    for (let unit of epubColumn.unitList) {
+      let { ele4SinglePage: unitEle4SinglePage } = this.generateUnitInfoHtml(unit)
+      ele4SinglePageList.push(unitEle4SinglePage)
+
+      for (let page of unit.pageList) {
+        let { ele4SinglePage: pageEle4SinglePage } = this.generatePageHtml(page)
+        ele4SinglePageList.push(pageEle4SinglePage)
+
+        if (ele4SinglePageList.length >= BATCH_SIZE) {
+          flushBatch()
+        }
+      }
+    }
+    flushBatch()
 
     let pdfPath = path.resolve(PathConfig.pdfOutputPath, `${epubColumn.bookname}.pdf`)
-    await pdfGenerator.saveHtmlToPdf(singlePageContent, pdfPath)
+    await pdfGenerator.asyncGeneratePdfByBatches(htmlBatchList, pdfPath)
 
     this.log(`PDF 生成完成: ${pdfPath}`)
   }

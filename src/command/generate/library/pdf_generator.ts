@@ -10,6 +10,7 @@ import http from '../../../library/http'
 import md5 from 'md5'
 import url from 'url'
 import lodash from 'lodash'
+import { PDFDocument } from 'pdf-lib'
 import * as Type_TaskConfig from '../../../type/task_config'
 
 const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -384,6 +385,9 @@ class PdfGenerator {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--allow-file-access-from-files',
+          // 减少内存/崩溃风险（超大单页 HTML 会加载大量图片）
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
         ],
       })
 
@@ -397,8 +401,8 @@ class PdfGenerator {
 
       // 使用 file:// 协议加载本地 HTML
       await page.goto(`file:///${htmlPath.replace(/\\/g, '/')}`, {
-        waitUntil: 'networkidle0',
-        timeout: 60000,
+        waitUntil: 'load',
+        timeout: 0,
       })
 
       // 额外等待，确保图片渲染完成
@@ -426,7 +430,12 @@ class PdfGenerator {
       throw error
     } finally {
       if (browser) {
-        await browser.close()
+        try {
+          await browser.close()
+        } catch (e) {
+          // 忽略关闭浏览器时的清理错误（如 EBUSY 临时 profile 被锁），PDF 已生成
+          logger.log(`[PdfGenerator] 关闭浏览器时出错(可忽略): ${e}`)
+        }
       }
     }
   }
@@ -434,6 +443,10 @@ class PdfGenerator {
   async saveHtmlToPdf(html: string, outputPath: string): Promise<void> {
     // 处理 HTML：清理 + 替换图片地址为本地路径
     let processedHtml = this.processHtmlContent(html)
+
+    // 注入图片自适应样式，避免大图超出页面宽度被裁切（只显示左边）
+    const responsiveStyle = '<style>img{max-width:100% !important;height:auto !important;}</style>'
+    processedHtml = processedHtml.replace(/<\/head>/i, responsiveStyle + '</head>')
 
     // 下载所有图片（包括 LaTeX 公式图片）
     await this.downloadAllImages()
@@ -450,6 +463,134 @@ class PdfGenerator {
       fs.unlinkSync(htmlFilePath)
     } catch (e) {
       // 忽略删除失败
+    }
+  }
+
+  /**
+   * 一次性启动浏览器，依次将多个 HTML 转为 PDF（避免超大单页 HTML 导致内存崩溃）
+   */
+  async convertHtmlListToPdf(htmlPathList: string[], pdfPathList: string[]): Promise<void> {
+    if (htmlPathList.length !== pdfPathList.length) {
+      throw new Error(`[PdfGenerator] htmlPathList 与 pdfPathList 长度不一致`)
+    }
+
+    let browser: Browser | null = null
+    try {
+      browser = await puppeteer.launch({
+        executablePath: CHROME_EXECUTABLE_PATH,
+        headless: true,
+        protocolTimeout: 0,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--allow-file-access-from-files',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+        ],
+      })
+
+      for (let i = 0; i < htmlPathList.length; i++) {
+        let page: Page = await browser.newPage()
+        try {
+          await page.setViewport({ width: 794, height: 1123 })
+          await page.goto(`file:///${htmlPathList[i].replace(/\\/g, '/')}`, {
+            waitUntil: 'load',
+            timeout: 0,
+          })
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          await page.pdf({
+            path: pdfPathList[i],
+            format: 'A4',
+            printBackground: true,
+            timeout: 0,
+            outline: true,
+            margin: { top: '20mm', bottom: '20mm', left: '20mm', right: '20mm' },
+          })
+        } finally {
+          await page.close()
+        }
+      }
+    } finally {
+      if (browser) {
+        try {
+          await browser.close()
+        } catch (e) {
+          logger.log(`[PdfGenerator] 关闭浏览器时出错(可忽略): ${e}`)
+        }
+      }
+    }
+  }
+
+  /**
+   * 用 pdf-lib 合并多个 PDF 为一个 PDF
+   */
+  async mergePdfs(pdfPathList: string[], outputPath: string): Promise<void> {
+    const mergedPdf = await PDFDocument.create()
+    for (let pdfPath of pdfPathList) {
+      if (!fs.existsSync(pdfPath)) {
+        continue
+      }
+      const srcBytes = fs.readFileSync(pdfPath)
+      const srcPdf = await PDFDocument.load(srcBytes)
+      const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices())
+      for (let page of copiedPages) {
+        mergedPdf.addPage(page)
+      }
+    }
+    const mergedBytes = await mergedPdf.save()
+    fs.writeFileSync(outputPath, mergedBytes)
+  }
+
+  /**
+   * 分批将 HTML 列表转换为 PDF 并合并为一个文件
+   * 解决超大单页 HTML（大量图片）导致 Chrome 内存不足崩溃的问题
+   */
+  async asyncGeneratePdfByBatches(htmlList: string[], outputPath: string): Promise<void> {
+    if (htmlList.length === 0) {
+      return
+    }
+
+    // 1. 处理每批 HTML（替换图片为 file:// 路径，图片 URL 累积到图片池），并注入图片自适应样式
+    const responsiveStyle = '<style>img{max-width:100% !important;height:auto !important;}</style>'
+    let processedHtmlList = htmlList.map((html) => {
+      let processed = this.processHtmlContent(html)
+      return processed.replace(/<\/head>/i, responsiveStyle + '</head>')
+    })
+
+    // 2. 一次性下载所有图片
+    await this.downloadAllImages()
+
+    // 3. 每批写入临时 HTML 文件
+    let tempHtmlPathList: string[] = []
+    let tempPdfPathList: string[] = []
+    for (let i = 0; i < processedHtmlList.length; i++) {
+      let tempHtmlPath = path.resolve(this.pdfCachePath, `${this.bookname}_part_${i}_temp.html`)
+      let tempPdfPath = path.resolve(this.pdfCachePath, `${this.bookname}_part_${i}.pdf`)
+      fs.writeFileSync(tempHtmlPath, processedHtmlList[i], 'utf-8')
+      tempHtmlPathList.push(tempHtmlPath)
+      tempPdfPathList.push(tempPdfPath)
+    }
+
+    // 4. 分批转换为 PDF
+    await this.convertHtmlListToPdf(tempHtmlPathList, tempPdfPathList)
+
+    // 5. 合并为一个 PDF
+    await this.mergePdfs(tempPdfPathList, outputPath)
+
+    // 6. 清理临时文件
+    for (let p of tempHtmlPathList) {
+      try {
+        fs.unlinkSync(p)
+      } catch (e) {
+        // 忽略删除失败
+      }
+    }
+    for (let p of tempPdfPathList) {
+      try {
+        fs.unlinkSync(p)
+      } catch (e) {
+        // 忽略删除失败
+      }
     }
   }
 }
