@@ -378,6 +378,8 @@ class PdfGenerator {
       browser = await puppeteer.launch({
         executablePath: CHROME_EXECUTABLE_PATH,
         headless: true,
+        // 0 表示禁用 CDP 协议超时（默认 180 秒），大 PDF 生成时会超过
+        protocolTimeout: 0,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -406,6 +408,10 @@ class PdfGenerator {
         path: pdfPath,
         format: 'A4',
         printBackground: true,
+        // 单页 HTML 可能很大，禁用默认的 30 秒超时，避免生成 PDF 时被中断
+        timeout: 0,
+        // 根据 HTML 中的标题（h1/h2/h3…）生成 PDF 书签/目录
+        outline: true,
         margin: {
           top: '20mm',
           bottom: '20mm',
