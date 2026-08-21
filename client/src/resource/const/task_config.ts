@@ -69,7 +69,7 @@ export const Const_Default_Ua =
 export const Const_Default_Cookie = '' as const
 
 // 单本电子书中最大问题/文章数量
-export const Const_Max_Question_Or_Article_In_Book = 10000 as const
+export const Const_Max_Question_Or_Article_In_Book = 200 as const
 
 /**
  * 默认任务配置

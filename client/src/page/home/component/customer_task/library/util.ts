@@ -82,7 +82,7 @@ export default class Util {
             "comment": "",
             "generateType": "single",
             "imageQuilty": "hd",
-            "maxItemInBook": 10000,
+            "maxItemInBook": 200,
             "orderItemList": [],
             "exportFormat": ConstTaskConfig.Const_Default_Export_Format_List,
             "dateRange": {

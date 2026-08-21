@@ -402,7 +402,7 @@ export default () => {
             <Space>
               单本电子书中最多
               <Form.Item name="maxItemInBook" noStyle>
-                <InputNumber step={1000}></InputNumber>
+                <InputNumber step={100}></InputNumber>
               </Form.Item>
               条答案/想法/文章
             </Space>
