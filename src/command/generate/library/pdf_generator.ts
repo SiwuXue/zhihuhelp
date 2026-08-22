@@ -10,7 +10,7 @@ import http from '../../../library/http'
 import md5 from 'md5'
 import url from 'url'
 import lodash from 'lodash'
-import { PDFDocument, PDFName, PDFString, PDFNumber, PDFArray, PDFDict, PDFRef, StandardFonts, rgb, degrees } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString, PDFHexString, PDFNumber, PDFArray, PDFDict, PDFRef, StandardFonts, rgb, degrees } from 'pdf-lib'
 import * as Type_TaskConfig from '../../../type/task_config'
 
 const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -528,7 +528,7 @@ class PdfGenerator {
   async mergePdfs(pdfPathList: string[], outputPath: string): Promise<void> {
     const mergedPdf = await PDFDocument.create()
     let pageOffset = 0
-    let bookmarkList: Array<{ title: string; pageIndex: number }> = []
+    let bookmarkList: Array<{ title: string; pageIndex: number; left?: number; top?: number; zoom?: number }> = []
 
     for (let pdfPath of pdfPathList) {
       if (!fs.existsSync(pdfPath)) {
@@ -538,11 +538,19 @@ class PdfGenerator {
       const srcPdf = await PDFDocument.load(srcBytes)
 
       // 读取该批 PDF 的书签（批内页码），并平移到合并后的全局页码
-      for (let bookmark of this.readOutline(srcPdf)) {
-        bookmarkList.push({
-          title: bookmark.title,
-          pageIndex: bookmark.pageIndex + pageOffset,
-        })
+      // 书签读取失败不应阻断PDF合并, 记录警告并跳过书签即可
+      try {
+        for (let bookmark of this.readOutline(srcPdf)) {
+          bookmarkList.push({
+            title: bookmark.title,
+            pageIndex: bookmark.pageIndex + pageOffset,
+            left: bookmark.left,
+            top: bookmark.top,
+            zoom: bookmark.zoom,
+          })
+        }
+      } catch (e) {
+        logger.warn(`[PdfGenerator] 读取PDF书签失败, 已跳过该书签, 错误: ${e}`)
       }
 
       const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices())
@@ -566,10 +574,12 @@ class PdfGenerator {
   }
 
   /**
-   * 读取 PDF 的顶层书签（outline），返回 [{ title, pageIndex }]
+   * 读取 PDF 的顶层书签（outline），返回 [{ title, pageIndex, left, top, zoom }]
    */
-  private readOutline(pdf: PDFDocument): Array<{ title: string; pageIndex: number }> {
-    const result: Array<{ title: string; pageIndex: number }> = []
+  private readOutline(
+    pdf: PDFDocument,
+  ): Array<{ title: string; pageIndex: number; left?: number; top?: number; zoom?: number }> {
+    const result: Array<{ title: string; pageIndex: number; left?: number; top?: number; zoom?: number }> = []
     const context = pdf.context
 
     // 建立 ref 标识 -> 页码 的映射
@@ -578,47 +588,78 @@ class PdfGenerator {
       refToIndex.set(`${page.ref.objectNumber}-${page.ref.generationNumber}`, index)
     })
 
-    const outlinesRef = pdf.catalog.lookupMaybe(PDFName.of('Outlines'), PDFRef)
-    if (!outlinesRef) {
-      return result
-    }
-
-    const outlineRoot = context.lookupMaybe(outlinesRef, PDFDict)
+    // 找到 Outlines 根节点
+    // 注意: pdf-lib 的 lookupMaybe 会自动解引用 PDFRef, 因此这里的目标类型应写 PDFDict, 写 PDFRef 会抛
+    // "Expected instance of PDFRef, but got instance of PDFDict"
+    const outlineRoot = pdf.catalog.lookupMaybe(PDFName.of('Outlines'), PDFDict)
     if (!outlineRoot) {
       return result
     }
 
-    let firstRef = outlineRoot.lookupMaybe(PDFName.of('First'), PDFRef)
-    while (firstRef) {
-      const item = context.lookupMaybe(firstRef, PDFDict)
-      if (!item) {
-        break
-      }
-
-      const title = item.lookupMaybe(PDFName.of('Title'), PDFString)?.decodeText() ?? ''
-      const dest = item.lookup(PDFName.of('Dest'))
+    // 遍历顶层书签链(First -> Next), 目标类型同样是 PDFDict
+    let firstItem = outlineRoot.lookupMaybe(PDFName.of('First'), PDFDict)
+    while (firstItem) {
+      // Chrome 生成的书签标题可能是 PDFString 或 PDFHexString, 两种都要兼容
+      const titleObj = firstItem.lookupMaybe(PDFName.of('Title'), PDFString, PDFHexString)
+      const title = titleObj ? (((titleObj as any).decodeText?.()) ?? '') : ''
+      const dest = firstItem.lookupMaybe(PDFName.of('Dest'), PDFArray)
       let pageIndex = -1
-      if (dest instanceof PDFArray) {
-        const pageRef = dest.lookupMaybe(0, PDFRef)
-        if (pageRef) {
+      let left: number | undefined
+      let top: number | undefined
+      let zoom: number | undefined
+      if (dest) {
+        // dest[0] 是指向目标页的引用, 直接取原始引用, 避免解引用后类型不匹配
+        const pageRef = dest.get(0)
+        if (pageRef instanceof PDFRef) {
           pageIndex = refToIndex.get(`${pageRef.objectNumber}-${pageRef.generationNumber}`) ?? -1
+        }
+        // Chrome 的 Dest 形如 [pageRef /XYZ left top zoom], 坐标必须原样保留并写回,
+        // 否则合并后书签点击无法跳转到正确位置(WPS 等阅读器对 /XYZ null null null 不跳转)
+        // 注意: pdf-lib 的 PDFName.asString() 返回带斜杠的名称(如 "/XYZ")
+        const destType = dest.get(1)
+        if (destType instanceof PDFName && destType.asString() === '/XYZ') {
+          left = this.asNumber(dest.get(2))
+          top = this.asNumber(dest.get(3))
+          zoom = this.asNumber(dest.get(4))
         }
       }
 
       if (pageIndex >= 0) {
-        result.push({ title, pageIndex })
+        result.push({ title, pageIndex, left, top, zoom })
       }
 
-      firstRef = item.lookupMaybe(PDFName.of('Next'), PDFRef)
+      firstItem = firstItem.lookupMaybe(PDFName.of('Next'), PDFDict)
     }
 
     return result
   }
 
   /**
+   * 尝试将 PDF 对象转为数字(可能为 PDFNumber 或 null)
+   */
+  private asNumber(value: any): number | undefined {
+    if (value instanceof PDFNumber) {
+      return value.asNumber()
+    }
+    return undefined
+  }
+
+  /**
+   * 将书签标题编码为 UTF-16BE+BOM 的十六进制字符串(PDF标准做法)
+   * 直接用 PDFString 写中文标题, 重新加载时会按字节截断导致乱码
+   */
+  private encodeOutlineTitle(title: string): PDFHexString {
+    const bytes = Buffer.concat([Buffer.from([0xfe, 0xff]), Buffer.from(title, 'utf16le').swap16()])
+    return PDFHexString.of(bytes.toString('hex').toUpperCase())
+  }
+
+  /**
    * 用 pdf-lib 底层 API 给 PDF 添加顶层书签（扁平 outline）
    */
-  private addOutlines(pdf: PDFDocument, bookmarkList: Array<{ title: string; pageIndex: number }>): void {
+  private addOutlines(
+    pdf: PDFDocument,
+    bookmarkList: Array<{ title: string; pageIndex: number; left?: number; top?: number; zoom?: number }>,
+  ): void {
     if (bookmarkList.length === 0) {
       return
     }
@@ -637,12 +678,13 @@ class PdfGenerator {
       const dest = PDFArray.withContext(context)
       dest.push(page.ref)
       dest.push(PDFName.of('XYZ'))
-      dest.push(context.obj(null))
-      dest.push(context.obj(null))
-      dest.push(context.obj(null))
+      // 使用原PDF读取到的坐标(WPS 等阅读器对 /XYZ null null null 不会跳转), 缺失时跳到页面顶部
+      dest.push(context.obj(bookmark.left ?? 0))
+      dest.push(context.obj(bookmark.top ?? page.getHeight()))
+      dest.push(context.obj(bookmark.zoom ?? 0))
 
       const itemDict = PDFDict.withContext(context)
-      itemDict.set(PDFName.of('Title'), PDFString.of(bookmark.title))
+      itemDict.set(PDFName.of('Title'), this.encodeOutlineTitle(bookmark.title))
       itemDict.set(PDFName.of('Dest'), dest)
       itemDictList.push(itemDict)
     }
@@ -682,16 +724,56 @@ class PdfGenerator {
   }
 
   /**
+   * 加载水印字体: 若安装了@pdf-lib/fontkit则优先嵌入支持中文的系统字体, 否则退回Helvetica
+   */
+  private async embedWatermarkFont(pdf: PDFDocument): Promise<any> {
+    // 如果安装了 fontkit, 则尝试嵌入系统中文字体, 以支持中文水印
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fontkit = require('@pdf-lib/fontkit')
+      pdf.registerFontkit(fontkit)
+      const cjkFontUriList = [
+        'C:\\Windows\\Fonts\\simhei.ttf', // Windows 黑体
+        'C:\\Windows\\Fonts\\msyh.ttc', // Windows 微软雅黑
+        'C:\\Windows\\Fonts\\simsun.ttc', // Windows 宋体
+        '/System/Library/Fonts/PingFang.ttc', // macOS 苹方
+        '/System/Library/Fonts/STHeiti Light.ttc', // macOS 黑体
+      ]
+      for (let fontUri of cjkFontUriList) {
+        if (fs.existsSync(fontUri)) {
+          try {
+            return await pdf.embedFont(fs.readFileSync(fontUri), { subset: true })
+          } catch (e) {
+            logger.warn(`[PdfGenerator] 嵌入字体失败:${fontUri}, 错误:${e}`)
+          }
+        }
+      }
+    } catch (e) {
+      // 未安装 @pdf-lib/fontkit, 无法嵌入自定义字体, 退回标准字体
+      logger.warn(`[PdfGenerator] 未安装@pdf-lib/fontkit, 中文水印可能无法编码, 将以标准字体绘制`)
+    }
+    return await pdf.embedFont(StandardFonts.Helvetica)
+  }
+
+  /**
    * 用 pdf-lib 给 PDF 每页叠加斜向半透明文字水印
+   * 若字体无法编码水印文字(如中文), 跳过水印并告警, 避免整个PDF生成失败
    */
   private async addWatermark(pdf: PDFDocument, text: string): Promise<void> {
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    const font = await this.embedWatermarkFont(pdf)
     const pages = pdf.getPages()
 
     for (let page of pages) {
       const { width, height } = page.getSize()
       const fontSize = 48
-      const textWidth = font.widthOfTextAtSize(text, fontSize)
+      let textWidth: number
+      try {
+        textWidth = font.widthOfTextAtSize(text, fontSize)
+      } catch (e) {
+        // WinAnsi 等标准字体无法编码中文等字符, 跳过水印而不是让整个PDF生成失败
+        logger.warn(`[PdfGenerator] 水印文字包含当前字体无法编码的字符, 已跳过水印: ${text}, 错误: ${e}`)
+        return
+      }
       const textHeight = font.heightAtSize(fontSize)
 
       // 居中并旋转 45 度

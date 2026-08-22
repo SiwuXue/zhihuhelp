@@ -816,7 +816,8 @@ class GenerateCustomer extends Base {
     let epubItemList: Package.Ebook_Column[] = []
     for (let currentBookColumnIndex = 1; processUnitList.length > 0; currentBookColumnIndex++) {
       // 总卷数确定, 从前往后加即可
-      let bookname = `${booktitle}_${currentBookColumnIndex}/${totalColumnCount}卷`
+      // 注意: 分卷名不能包含"/", 否则在Windows上会被当成路径分隔符, 导致epub/pdf/html输出路径错乱(ENOENT)
+      let bookname = `${booktitle}_${currentBookColumnIndex}-${totalColumnCount}卷`
 
       let currentUnitList: Package.Type_Unit_Item[] = []
       let currentItemCount = 0
