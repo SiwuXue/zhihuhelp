@@ -1,8 +1,9 @@
 import path from 'path'
 import fs from 'fs'
 import shelljs from 'shelljs'
-import puppeteer, { Browser, Page } from 'puppeteer-core'
+import { BrowserWindow } from 'electron'
 import sharp from 'sharp'
+import pLimit from 'p-limit'
 import logger from '../../../library/logger'
 import PathConfig from '../../../config/path'
 import CommonUtil from '../../../library/util/common'
@@ -12,8 +13,6 @@ import url from 'url'
 import lodash from 'lodash'
 import { PDFDocument, PDFName, PDFString, PDFHexString, PDFNumber, PDFArray, PDFDict, PDFRef, StandardFonts, rgb, degrees } from 'pdf-lib'
 import * as Type_TaskConfig from '../../../type/task_config'
-
-const CHROME_EXECUTABLE_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 
 // 知乎图片 CDN 列表，用于在下载时尝试多个服务器
 const Const_Zhihu_Img_Prefix_Reg = /https:\/\/pic\w.zhimg.com/
@@ -275,6 +274,9 @@ class PdfGenerator {
    * 下载所有图片（包括普通图片和 LaTeX 公式图片）
    */
   private async downloadAllImages() {
+    // 知乎图片 CDN 为静态资源, 5 路并发下载以加快速度
+    const limit = pLimit(5)
+
     // 1. 下载普通图片
     let total = this.imgUrlPool.size
     if (total > 0) {
@@ -282,29 +284,34 @@ class PdfGenerator {
       let index = 0
       let successCount = 0
 
+      const taskList: Promise<void>[] = []
       for (let [imgSrc, filename] of this.imgUrlPool.entries()) {
-        index++
-        let globalCacheUri = path.resolve(this.imgCachePath, filename)
-        let pdfCacheUri = path.resolve(this.pdfCacheImgPath, filename)
+        const currentIndex = ++index
+        const globalCacheUri = path.resolve(this.imgCachePath, filename)
+        const pdfCacheUri = path.resolve(this.pdfCacheImgPath, filename)
+        taskList.push(
+          limit(async () => {
+            if (fs.existsSync(pdfCacheUri)) {
+              successCount++
+              return
+            }
 
-        if (fs.existsSync(pdfCacheUri)) {
-          successCount++
-          continue
-        }
+            if (fs.existsSync(globalCacheUri)) {
+              fs.copyFileSync(globalCacheUri, pdfCacheUri)
+              successCount++
+              return
+            }
 
-        if (fs.existsSync(globalCacheUri)) {
-          fs.copyFileSync(globalCacheUri, pdfCacheUri)
-          successCount++
-          continue
-        }
-
-        logger.log(`[PdfGenerator] 下载第 ${index}/${total} 张图片: ${imgSrc}`)
-        let success = await this.downloadSingleImage(imgSrc, globalCacheUri)
-        if (success) {
-          fs.copyFileSync(globalCacheUri, pdfCacheUri)
-          successCount++
-        }
+            logger.log(`[PdfGenerator] 下载第 ${currentIndex}/${total} 张图片: ${imgSrc}`)
+            let success = await this.downloadSingleImage(imgSrc, globalCacheUri)
+            if (success) {
+              fs.copyFileSync(globalCacheUri, pdfCacheUri)
+              successCount++
+            }
+          }),
+        )
       }
+      await Promise.all(taskList)
       logger.log(`[PdfGenerator] 普通图片下载完成，成功 ${successCount}/${total} 张`)
     }
 
@@ -315,53 +322,59 @@ class PdfGenerator {
       let latexIndex = 0
       let latexSuccessCount = 0
 
+      const latexTaskList: Promise<void>[] = []
       for (let [imgSrc, filenames] of this.latexImgPool.entries()) {
-        latexIndex++
+        const currentIndex = ++latexIndex
         let { svgFilename, pngFilename } = filenames
         let globalSvgUri = path.resolve(this.imgCachePath, svgFilename)
         let globalPngUri = path.resolve(this.imgCachePath, pngFilename)
         let pdfPngUri = path.resolve(this.pdfCacheImgPath, pngFilename)
 
-        // 如果 PDF 目录已有 PNG，跳过
-        if (fs.existsSync(pdfPngUri)) {
-          latexSuccessCount++
-          continue
-        }
+        latexTaskList.push(
+          limit(async () => {
+            // 如果 PDF 目录已有 PNG，跳过
+            if (fs.existsSync(pdfPngUri)) {
+              latexSuccessCount++
+              return
+            }
 
-        // 如果全局缓存有 PNG，直接复制
-        if (fs.existsSync(globalPngUri)) {
-          fs.copyFileSync(globalPngUri, pdfPngUri)
-          latexSuccessCount++
-          continue
-        }
+            // 如果全局缓存有 PNG，直接复制
+            if (fs.existsSync(globalPngUri)) {
+              fs.copyFileSync(globalPngUri, pdfPngUri)
+              latexSuccessCount++
+              return
+            }
 
-        // 如果全局缓存有 SVG，转换为 PNG
-        if (fs.existsSync(globalSvgUri)) {
-          try {
-            await sharp(globalSvgUri).png().toFile(globalPngUri)
-            fs.copyFileSync(globalPngUri, pdfPngUri)
-            latexSuccessCount++
-            continue
-          } catch (e) {
-            logger.warn(`[PdfGenerator] 转换 LaTeX SVG 失败: ${svgFilename}, 错误: ${e}`)
-          }
-        }
+            // 如果全局缓存有 SVG，转换为 PNG
+            if (fs.existsSync(globalSvgUri)) {
+              try {
+                await sharp(globalSvgUri).png().toFile(globalPngUri)
+                fs.copyFileSync(globalPngUri, pdfPngUri)
+                latexSuccessCount++
+                return
+              } catch (e) {
+                logger.warn(`[PdfGenerator] 转换 LaTeX SVG 失败: ${svgFilename}, 错误: ${e}`)
+              }
+            }
 
-        // 下载 SVG 并转换
-        logger.log(`[PdfGenerator] 下载第 ${latexIndex}/${latexTotal} 张 LaTeX 图片: ${imgSrc}`)
-        let success = await this.downloadSingleImage(imgSrc, globalSvgUri)
-        if (success) {
-          try {
-            await sharp(globalSvgUri).png().toFile(globalPngUri)
-            fs.copyFileSync(globalPngUri, pdfPngUri)
-            latexSuccessCount++
-          } catch (e) {
-            logger.warn(`[PdfGenerator] LaTeX SVG 转 PNG 失败: ${svgFilename}, 错误: ${e}`)
-            // 如果转换失败，尝试直接复制 SVG（某些情况下浏览器可能直接显示 SVG）
-            fs.copyFileSync(globalSvgUri, pdfPngUri.replace('.png', '.svg'))
-          }
-        }
+            // 下载 SVG 并转换
+            logger.log(`[PdfGenerator] 下载第 ${currentIndex}/${latexTotal} 张 LaTeX 图片: ${imgSrc}`)
+            let success = await this.downloadSingleImage(imgSrc, globalSvgUri)
+            if (success) {
+              try {
+                await sharp(globalSvgUri).png().toFile(globalPngUri)
+                fs.copyFileSync(globalPngUri, pdfPngUri)
+                latexSuccessCount++
+              } catch (e) {
+                logger.warn(`[PdfGenerator] LaTeX SVG 转 PNG 失败: ${svgFilename}, 错误: ${e}`)
+                // 如果转换失败，尝试直接复制 SVG（某些情况下浏览器可能直接显示 SVG）
+                fs.copyFileSync(globalSvgUri, pdfPngUri.replace('.png', '.svg'))
+              }
+            }
+          }),
+        )
       }
+      await Promise.all(latexTaskList)
       logger.log(`[PdfGenerator] LaTeX 公式图片处理完成，成功 ${latexSuccessCount}/${latexTotal} 张`)
     }
   }
@@ -375,68 +388,17 @@ class PdfGenerator {
   }
 
   async convertHtmlToPdf(htmlPath: string, pdfPath: string): Promise<void> {
-    let browser: Browser | null = null
-
+    // 使用 Electron 隐藏窗口加载 HTML 并调用 webContents.printToPDF, 不再依赖外部 Chrome
+    let win: BrowserWindow | null = null
     try {
-      browser = await puppeteer.launch({
-        executablePath: CHROME_EXECUTABLE_PATH,
-        headless: true,
-        // 0 表示禁用 CDP 协议超时（默认 180 秒），大 PDF 生成时会超过
-        protocolTimeout: 0,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--allow-file-access-from-files',
-          // 减少内存/崩溃风险（超大单页 HTML 会加载大量图片）
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ],
-      })
-
-      let page: Page = await browser.newPage()
-
-      // 设置合适的视口大小
-      await page.setViewport({
-        width: 794, // A4 宽度 (96dpi)
-        height: 1123, // A4 高度 (96dpi)
-      })
-
-      // 使用 file:// 协议加载本地 HTML
-      await page.goto(`file:///${htmlPath.replace(/\\/g, '/')}`, {
-        waitUntil: 'load',
-        timeout: 0,
-      })
-
-      // 额外等待，确保图片渲染完成
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      await page.pdf({
-        path: pdfPath,
-        format: 'A4',
-        printBackground: true,
-        // 单页 HTML 可能很大，禁用默认的 30 秒超时，避免生成 PDF 时被中断
-        timeout: 0,
-        // 根据 HTML 中的标题（h1/h2/h3…）生成 PDF 书签/目录
-        outline: true,
-        margin: {
-          top: '20mm',
-          bottom: '20mm',
-          left: '20mm',
-          right: '20mm',
-        },
-      })
-
-      await page.close()
-    } catch (error) {
-      logger.log(`[PdfGenerator] HTML 转 PDF 失败: ${htmlPath}, 错误: ${error}`)
-      throw error
+      win = await this.createHiddenPdfWindow()
+      await this.convertHtmlToPdfWithWindow(win, htmlPath, pdfPath, 2000)
     } finally {
-      if (browser) {
+      if (win) {
         try {
-          await browser.close()
+          win.destroy()
         } catch (e) {
-          // 忽略关闭浏览器时的清理错误（如 EBUSY 临时 profile 被锁），PDF 已生成
-          logger.log(`[PdfGenerator] 关闭浏览器时出错(可忽略): ${e}`)
+          logger.log(`[PdfGenerator] 关闭PDF窗口时出错(可忽略): ${e}`)
         }
       }
     }
@@ -468,55 +430,69 @@ class PdfGenerator {
   }
 
   /**
-   * 一次性启动浏览器，依次将多个 HTML 转为 PDF（避免超大单页 HTML 导致内存崩溃）
+   * 创建用于 PDF 渲染的隐藏窗口
+   */
+  private async createHiddenPdfWindow(): Promise<BrowserWindow> {
+    const win = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        offscreen: false,
+        sandbox: false,
+      },
+    })
+    return win
+  }
+
+  /**
+   * 用指定隐藏窗口将单个 HTML 转为 PDF
+   */
+  private async convertHtmlToPdfWithWindow(win: BrowserWindow, htmlPath: string, pdfPath: string, waitMs: number): Promise<void> {
+    try {
+      await win.loadFile(htmlPath)
+      // 额外等待，确保图片渲染完成
+      await new Promise((resolve) => setTimeout(resolve, waitMs))
+
+      // margins 单位为英寸, 20mm ≈ 0.7874 英寸
+      const marginInch = 20 / 25.4
+      const pdfData = await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize: 'A4',
+        // 根据 HTML 中的标题（h1/h2/h3…）生成 PDF 书签/目录
+        generateDocumentOutline: true,
+        margins: {
+          top: marginInch,
+          bottom: marginInch,
+          left: marginInch,
+          right: marginInch,
+        },
+      })
+      fs.writeFileSync(pdfPath, pdfData)
+    } catch (error) {
+      logger.log(`[PdfGenerator] HTML 转 PDF 失败: ${htmlPath}, 错误: ${error}`)
+      throw error
+    }
+  }
+
+  /**
+   * 一次性创建隐藏窗口，依次将多个 HTML 转为 PDF（避免超大单页 HTML 导致内存崩溃）
    */
   async convertHtmlListToPdf(htmlPathList: string[], pdfPathList: string[]): Promise<void> {
     if (htmlPathList.length !== pdfPathList.length) {
       throw new Error(`[PdfGenerator] htmlPathList 与 pdfPathList 长度不一致`)
     }
 
-    let browser: Browser | null = null
+    let win: BrowserWindow | null = null
     try {
-      browser = await puppeteer.launch({
-        executablePath: CHROME_EXECUTABLE_PATH,
-        headless: true,
-        protocolTimeout: 0,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--allow-file-access-from-files',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ],
-      })
-
+      win = await this.createHiddenPdfWindow()
       for (let i = 0; i < htmlPathList.length; i++) {
-        let page: Page = await browser.newPage()
-        try {
-          await page.setViewport({ width: 794, height: 1123 })
-          await page.goto(`file:///${htmlPathList[i].replace(/\\/g, '/')}`, {
-            waitUntil: 'load',
-            timeout: 0,
-          })
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          await page.pdf({
-            path: pdfPathList[i],
-            format: 'A4',
-            printBackground: true,
-            timeout: 0,
-            outline: true,
-            margin: { top: '20mm', bottom: '20mm', left: '20mm', right: '20mm' },
-          })
-        } finally {
-          await page.close()
-        }
+        await this.convertHtmlToPdfWithWindow(win, htmlPathList[i], pdfPathList[i], 1000)
       }
     } finally {
-      if (browser) {
+      if (win) {
         try {
-          await browser.close()
+          win.destroy()
         } catch (e) {
-          logger.log(`[PdfGenerator] 关闭浏览器时出错(可忽略): ${e}`)
+          logger.log(`[PdfGenerator] 关闭PDF窗口时出错(可忽略): ${e}`)
         }
       }
     }

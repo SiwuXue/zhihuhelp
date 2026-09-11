@@ -1,5 +1,6 @@
 import logger from '../../library/logger'
 import fs from 'fs'
+import path from 'path'
 import PathConfig from '../../config/path'
 import * as Type_TaskConfig from '../../type/task_config'
 import * as Const_TaskConfig from '../../constant/task_config'
@@ -239,6 +240,71 @@ export default class CommonUtil {
    */
   static async asyncSleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  /**
+   * 清理全局图片缓存: 总大小超过上限时, 按最近使用时间(mtime)删除最旧的图片, 直到低于上限
+   * 避免 imgPool 目录只进不出, 长期运行占用大量磁盘空间
+   * @param maxCacheSize 缓存大小上限, 默认 2GB
+   */
+  static asyncCleanImgCache(maxCacheSize: number = 2 * 1024 * 1024 * 1024) {
+    const cachePath = PathConfig.imgCachePath
+    if (fs.existsSync(cachePath) === false) {
+      return
+    }
+    let fileList: { filePath: string; size: number; mtimeMs: number }[] = []
+    let totalSize = 0
+    // 递归遍历缓存目录, 收集所有图片文件的体积和最后访问时间
+    const walk = (dir: string) => {
+      let direntList: fs.Dirent[]
+      try {
+        direntList = fs.readdirSync(dir, { withFileTypes: true })
+      } catch (e) {
+        // 忽略目录读取失败(如权限异常), 避免中断整个清理流程
+        logger.log(`图片缓存目录读取失败, 已跳过: ${dir}, 错误: ${e}`)
+        return
+      }
+      for (let dirent of direntList) {
+        let filePath = path.resolve(dir, dirent.name)
+        if (dirent.isDirectory()) {
+          walk(filePath)
+        } else if (dirent.isFile()) {
+          try {
+            let stat = fs.statSync(filePath)
+            fileList.push({ filePath, size: stat.size, mtimeMs: stat.mtimeMs })
+            totalSize = totalSize + stat.size
+          } catch (e) {
+            // 忽略单个文件统计失败(如文件正被占用)
+          }
+        }
+      }
+    }
+    walk(cachePath)
+
+    if (totalSize <= maxCacheSize) {
+      return
+    }
+    logger.log(
+      `图片缓存总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB 超过上限, 开始清理最久未使用的图片`,
+    )
+    // 按 mtime 升序(最旧在前)删除, 直到总大小低于上限的 80%
+    fileList.sort((a, b) => a.mtimeMs - b.mtimeMs)
+    let deletedCount = 0
+    for (let file of fileList) {
+      if (totalSize <= maxCacheSize * 0.8) {
+        break
+      }
+      try {
+        fs.unlinkSync(file.filePath)
+        totalSize = totalSize - file.size
+        deletedCount++
+      } catch (e) {
+        // 忽略单个文件删除失败
+      }
+    }
+    logger.log(
+      `图片缓存清理完毕, 共删除 ${deletedCount} 个文件, 当前总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB`,
+    )
   }
 
   static getUuid() {

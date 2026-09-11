@@ -155,9 +155,34 @@ export default class httpClient {
     }
 
     const response = await httpInstance.get(url, config).catch((e) => {
-      logger.log(
-        `网络请求失败, 两种可能: 1.知乎更换了接口签名算法, 知乎私信@姚泽源 更新代码 2. 您的账号可能因抓取频繁被知乎认为有风险, 在浏览器中访问知乎首页,输入验证码即可恢复`,
-      )
+      // 按错误类型分类提示, 避免把网络层问题误报成知乎签名/风控问题
+      const errorCode: string = e?.code ?? ''
+      const status: number | undefined = e?.response?.status
+      // 网络层错误码: 连接被拒/超时/域名解析失败等, 与知乎接口本身无关
+      const networkErrorCodeList = [
+        'ECONNREFUSED',
+        'ETIMEDOUT',
+        'ENOTFOUND',
+        'ECONNRESET',
+        'EAI_AGAIN',
+        'EPIPE',
+        'EHOSTUNREACH',
+        'ENETUNREACH',
+        'ERR_INTERNET_DISCONNECTED',
+      ]
+      if (networkErrorCodeList.includes(errorCode)) {
+        logger.log(
+          `网络请求失败(网络层), url=>${url}, 错误码:${errorCode}, 请检查网络连接或代理设置后重试`,
+        )
+      } else if (status === 403) {
+        logger.log(
+          `网络请求失败(HTTP ${status}), url=>${url}, 两种可能: 1.知乎更换了接口签名算法, 知乎私信@姚泽源 更新代码 2. 您的账号可能因抓取频繁被知乎认为有风险, 在浏览器中访问知乎首页,输入验证码即可恢复`,
+        )
+      } else if (status !== undefined && status >= 400) {
+        logger.log(`网络请求失败(HTTP ${status}), url=>${url}, 知乎接口返回错误状态码`)
+      } else {
+        logger.log(`网络请求失败, url=>${url}, 请稍后重试`)
+      }
       logger.log(`错误内容=> message:${e.message}, stack=>${e.stack}`)
       return { data: [] }
     })
@@ -176,14 +201,32 @@ export default class httpClient {
    * @param url
    */
   static async downloadImg(url: string): Promise<Buffer> {
-    let res = await httpInstance.get(url, {
-      // 下载二进制文件时, 这里必须是arraybuffer, 否则会导致下载的文件损坏&无法识别
-      responseType: 'arraybuffer',
-      timeout: CommonConfig.request_timeout_ms,
-    }).catch(e => {
-      logger.log(`图片下载失败, url=>${url}, message:${e.message}, stack=>${e.stack}`)
-      return { data: [] }
-    })
-    return res.data
+    // 图片 CDN 为静态资源, 网络抖动时自动重试, 最多 3 次
+    const maxRetry = 3
+    let lastError: any
+    for (let retryIndex = 1; retryIndex <= maxRetry; retryIndex++) {
+      try {
+        let res = await httpInstance.get(url, {
+          // 下载二进制文件时, 这里必须是arraybuffer, 否则会导致下载的文件损坏&无法识别
+          responseType: 'arraybuffer',
+          timeout: CommonConfig.request_timeout_ms,
+        })
+        if (Buffer.isBuffer(res.data) && res.data.length > 0) {
+          return res.data
+        }
+        lastError = new Error('图片内容为空')
+      } catch (e) {
+        lastError = e as any
+        if (retryIndex < maxRetry) {
+          logger.log(`图片下载失败(第${retryIndex}/${maxRetry}次重试), url=>${url}, message:${(e as any).message}`)
+        }
+      }
+      if (retryIndex < maxRetry) {
+        // 重试前短暂等待, 避免集中重试打爆 CDN
+        await new Promise((resolve) => setTimeout(resolve, 500 * retryIndex))
+      }
+    }
+    logger.log(`图片下载失败, url=>${url}, message:${lastError?.message}, stack:${lastError?.stack}`)
+    return Buffer.from('')
   }
 }

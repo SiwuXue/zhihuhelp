@@ -8,7 +8,7 @@ This file provides guidance to agents when working with code in this repository.
 ## Tech Stack
 - **Main Process**: Node.js + TypeScript + Electron + AdonisJS (Ace)
 - **Renderer (Client)**: React + Vite + Ant Design
-- **Build**: Babel (not tsc) for transpilation
+- **Build**: TypeScript (tsc) for transpilation
 - **Package Manager**: pnpm
 
 ## Build Commands
@@ -16,11 +16,11 @@ This file provides guidance to agents when working with code in this repository.
 ### Root Directory (Main Process)
 ```bash
 # Development
-npm run watch          # Babel watch mode (compiles src/ -> dist/)
+npm run watch          # TypeScript watch mode (tsc -w, compiles src/ -> dist/)
 npm run start          # Start Electron app with --zhihuhelp-debug flag
 
 # Build
-npm run build          # Babel compile src to dist (with sourcemaps)
+npm run build          # TypeScript compile src to dist (with sourcemaps)
 npm run build-without-sourcemap  # Production build (no sourcemaps)
 
 # Package & Distribution
@@ -59,24 +59,25 @@ npm run start
 
 端口与顺序说明：
 
-- `npm run start` 会以 `--zhihuhelp-debug` 启动 Electron，此时主窗口硬编码加载 `http://localhost:8080`（见 `src/index.ts`）。
-- 因此必须先启动前端并让 Vite 占用 8080，再启动 Electron，否则窗口会白屏。
-- 若 8080 已被其它进程占用，Vite 会自动改用 8081，导致 Electron 白屏。启动前请确保 8080 空闲（如存在残留 vite 进程，先停掉）。
-- 前端代码未改动时，可直接复用已在 8080 运行的 Vite dev server，无需重复启动。
+- `npm run start` 会以 `--zhihuhelp-debug` 启动 Electron，此时主窗口会自动探测 `8080-8089` 范围内正在运行的 Vite dev server 并加载（见 `src/index.ts` 的 `asyncGetDevServerUrl`）。
+- 因此只需先启动前端、再启动 Electron 即可；即使 8080 被其它进程占用，Vite 自动改用 8081 后也能被正常识别，不会白屏。
+- 若未启动前端（探测范围内没有 Vite 服务），会回退到默认的 8080 端口，此时窗口会白屏，属预期行为。
+- 前端代码未改动时，可直接复用已在运行的 Vite dev server，无需重复启动。
 
 ## Code Style
 - **Prettier**: No semicolons, single quotes, trailing commas, 120 char line width
 - **ESLint**: Disabled `@typescript-eslint/no-unused-vars` and `no-unused-vars`
-- **Import Alias**: Use `~/src/` prefix for imports from src/ directory (configured in .babelrc)
+- **Import**: 主进程内部使用相对路径导入（`../../config/request`）；tsconfig `paths` 将 `~/src/` 映射到 `src/`，前端 Vite 侧同样配置了 `~/src` 别名
 
 ## Project-Specific Conventions
 
 ### Module Path Aliases
-Babel root-import plugin maps `~/src/` to `./src/`. Always use this for internal imports:
+主进程代码使用相对路径导入即可（构建为 tsc，未使用 Babel root-import）：
 ```typescript
-import Logger from '~/src/library/logger'
-import Config from '~/src/config/path'
+import Logger from '../../library/logger'
+import PathConfig from '../../config/path'
 ```
+前端项目（`client/`）中可使用 Vite 配置的 `~/src/` 别名。
 
 ### AdonisJS Commands
 Commands are registered via AdonisJS Ace. The project uses decorators for command definition.

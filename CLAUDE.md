@@ -46,17 +46,17 @@ npm run start
 
 端口与顺序说明：
 
-- `npm run start` 会以 `--zhihuhelp-debug` 启动 Electron，此时主窗口硬编码加载 `http://localhost:8080`（见 `src/index.ts`）。
-- 因此必须先启动前端并让 Vite 占用 8080，再启动 Electron，否则窗口会白屏。
-- 若 8080 已被其它进程占用，Vite 会自动改用 8081，导致 Electron 白屏。启动前请确保 8080 空闲（如存在残留 vite 进程，先停掉）。
-- 前端代码未改动时，可直接复用已在 8080 运行的 Vite dev server，无需重复启动。
+- `npm run start` 会以 `--zhihuhelp-debug` 启动 Electron，此时主窗口会自动探测 `8080-8089` 范围内正在运行的 Vite dev server 并加载（见 `src/index.ts` 的 `asyncGetDevServerUrl`）。
+- 因此只需先启动前端、再启动 Electron 即可；即使 8080 被其它进程占用，Vite 自动改用 8081 后也能被正常识别，不会白屏。
+- 若未启动前端（探测范围内没有 Vite 服务），会回退到默认的 8080 端口，此时窗口会白屏，属预期行为。
+- 前端代码未改动时，可直接复用已在运行的 Vite dev server，无需重复启动。
 
 ## Architecture
 
 ### Tech Stack
 - **Main Process**: Node.js + TypeScript + Electron + AdonisJS (Ace)
 - **Renderer (Client)**: React + Vite + Ant Design
-- **Build**: Babel (not tsc) for transpilation
+- **Build**: TypeScript (tsc) for transpilation
 - **Package Manager**: pnpm
 
 ### Directory Structure
@@ -81,7 +81,7 @@ zhihuhelp/
 
 **Root Directory (Main Process)**:
 ```bash
-npm run watch          # Babel watch mode
+npm run watch          # TypeScript watch mode (tsc -w)
 npm run build          # Compile with sourcemaps
 npm run start          # Start Electron app
 ```
@@ -95,7 +95,7 @@ npm run build          # Production build
 
 ### Code Style
 - **Prettier**: No semicolons, single quotes, trailing commas, 120 char line width
-- **Import Alias**: Use `~/src/` prefix for imports from src/ directory
+- **Import**: 主进程内部使用相对路径导入；前端 Vite 侧配置了 `~/src` 别名
 
 ### Adding New Export Formats
 

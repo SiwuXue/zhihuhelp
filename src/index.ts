@@ -12,6 +12,7 @@ import MSummary from './model/summary'
 import http from './library/http'
 import fs from 'fs'
 import path from 'path'
+import NodeHttp from 'http'
 
 // 初始化命令注册表
 CommandRegistry.init()
@@ -28,6 +29,60 @@ let jsRpcWindow: Electron.BrowserWindow
 let isRunning = false
 
 const isMacOS = process.platform === 'darwin'
+
+/**
+ * 探测前端 Vite dev server 实际监听的端口
+ * Vite 默认监听 8080, 端口被占用时会自动改用 8081/8082..., 逐个探测避免主窗口白屏
+ */
+function asyncGetDevServerUrl(): Promise<string> {
+  const portList: number[] = []
+  for (let port = 8080; port <= 8089; port++) {
+    portList.push(port)
+  }
+  return new Promise((resolve) => {
+    let isResolved = false
+    const resolveOnce = (url: string) => {
+      if (isResolved) {
+        return
+      }
+      isResolved = true
+      resolve(url)
+    }
+    let portIndex = 0
+    const tryNextPort = () => {
+      if (isResolved) {
+        return
+      }
+      if (portIndex >= portList.length) {
+        // 未探测到 Vite 服务, 回退默认端口(此时前端未启动, 加载会白屏, 属预期行为)
+        resolveOnce('http://localhost:8080')
+        return
+      }
+      const port = portList[portIndex++]
+      const req = NodeHttp.get(`http://localhost:${port}/`, (res) => {
+        let body = ''
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          // Vite dev server 会在首页注入 @vite/client 脚本, 以此确认是前端服务
+          if (body.includes('@vite/client')) {
+            resolveOnce(`http://localhost:${port}`)
+          } else {
+            tryNextPort()
+          }
+        })
+        res.on('error', () => tryNextPort())
+      })
+      req.setTimeout(300, () => {
+        req.destroy()
+        tryNextPort()
+      })
+      req.on('error', () => tryNextPort())
+    }
+    tryNextPort()
+  })
+}
 
 async function asyncCreateWindow() {
   if (process.platform === 'darwin') {
@@ -116,7 +171,9 @@ async function asyncCreateWindow() {
   if (isDebug) {
     // 本地调试 & 打开控制台
     // mainWindow.loadFile('./client/index.html')
-    mainWindow.loadURL('http://localhost:8080')
+    let devServerUrl = await asyncGetDevServerUrl()
+    Logger.log(`加载前端开发服务器: ${devServerUrl}`)
+    mainWindow.loadURL(devServerUrl)
     mainWindow.webContents.openDevTools()
 
     let jsRpcUri = path.resolve(__dirname, 'public', 'js-rpc', 'index.html')

@@ -70,82 +70,87 @@ class GenerateCustomer extends Base {
   public static description = `输出自定义电子书`
 
   async execute(): Promise<any> {
-    this.log(`从${PathConfig.configUri}中读取配置文件`)
-    let fetchConfigJSON = fs.readFileSync(PathConfig.configUri).toString()
-    this.log('content =>', fetchConfigJSON)
-    let customerTaskConfig: TypeTaskConfig.Type_Task_Config = json5.parse(fetchConfigJSON)
+    try {
+      this.log(`从${PathConfig.configUri}中读取配置文件`)
+      let fetchConfigJSON = fs.readFileSync(PathConfig.configUri).toString()
+      this.log('content =>', fetchConfigJSON)
+      let customerTaskConfig: TypeTaskConfig.Type_Task_Config = json5.parse(fetchConfigJSON)
 
-    let generateConfig = customerTaskConfig.generateConfig
-    let fetchTaskList = customerTaskConfig.fetchTaskList
+      let generateConfig = customerTaskConfig.generateConfig
+      let fetchTaskList = customerTaskConfig.fetchTaskList
 
-    // 生成类型
-    let imageQuilty = generateConfig.imageQuilty
+      // 生成类型
+      let imageQuilty = generateConfig.imageQuilty
 
-    // 根据生成类型, 制定最终结果数据集
+      // 根据生成类型, 制定最终结果数据集
 
-    // 最终电子书数据列表
+      // 最终电子书数据列表
 
-    // 生成最终结果集
+      // 生成最终结果集
 
-    // 按配置拆分电子书
+      // 按配置拆分电子书
 
-    let epubColumnList = await this.asyncGetColumnPackage({ fetchTaskList, generateConfig })
+      let epubColumnList = await this.asyncGetColumnPackage({ fetchTaskList, generateConfig })
 
-    // 针对每一个结果, 根据配置生成对应格式
+      // 针对每一个结果, 根据配置生成对应格式
 
-    // 处理html
-    // 下载图片
-    // 输出内容
+      // 处理html
+      // 下载图片
+      // 输出内容
 
-    for (let epubColumn of epubColumnList) {
-      let bookname = epubColumn.bookname
-      let exportFormat = generateConfig.exportFormat || Const_TaskConfig.Const_Default_Export_Format_List
-      this.log(`输出电子书:${bookname}, 格式:${exportFormat.join(',')}`)
+      for (let epubColumn of epubColumnList) {
+        let bookname = epubColumn.bookname
+        let exportFormat = generateConfig.exportFormat || Const_TaskConfig.Const_Default_Export_Format_List
+        this.log(`输出电子书:${bookname}, 格式:${exportFormat.join(',')}`)
 
-      let needGenerateEpub = exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)
-      let needGenerateHtml = exportFormat.includes(Const_TaskConfig.Const_Export_Format_HTML)
-      let watermark = generateConfig.comment || ''
+        let needGenerateEpub = exportFormat.includes(Const_TaskConfig.Const_Export_Format_EPUB)
+        let needGenerateHtml = exportFormat.includes(Const_TaskConfig.Const_Export_Format_HTML)
+        let watermark = generateConfig.comment || ''
 
-      // 生成 EPUB / HTML（二者共用同一套 HTML 内容生成流程）
-      if (needGenerateEpub || needGenerateHtml) {
-        await this.generateEpub({
-          epubColumn,
-          imageQuilty,
-          needGenerateEpub,
-          needGenerateHtml,
-          watermark,
-        })
+        // 生成 EPUB / HTML（二者共用同一套 HTML 内容生成流程）
+        if (needGenerateEpub || needGenerateHtml) {
+          await this.generateEpub({
+            epubColumn,
+            imageQuilty,
+            needGenerateEpub,
+            needGenerateHtml,
+            watermark,
+          })
+        }
+
+        // 生成 Markdown
+        if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_Markdown)) {
+          await this.generateMarkdown({
+            epubColumn,
+            imageQuilty,
+            watermark,
+          })
+        }
+
+        // 生成 PDF
+        if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_PDF)) {
+          await this.generatePdf({
+            epubColumn,
+            imageQuilty,
+            watermark,
+          })
+        }
+
+        this.log(`电子书:${bookname}输出完毕`)
       }
-
-      // 生成 Markdown
-      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_Markdown)) {
-        await this.generateMarkdown({
-          epubColumn,
-          imageQuilty,
-          watermark,
-        })
-      }
-
-      // 生成 PDF
-      if (exportFormat.includes(Const_TaskConfig.Const_Export_Format_PDF)) {
-        await this.generatePdf({
-          epubColumn,
-          imageQuilty,
-          watermark,
-        })
-      }
-
-      this.log(`电子书:${bookname}输出完毕`)
+      this.log(`所有电子书输出完毕`)
+    } finally {
+      // 无论生成成功还是中途异常, 都执行清理, 防止临时/图片缓存长期占用磁盘
+      // 清理中间缓存目录，只保留全局图片缓存和最终输出文件
+      this.log(`开始清理中间缓存目录`)
+      // htmlCachePath: EPUB 和 PDF 生成过程中的 HTML/图片临时目录
+      shelljs.rm('-rf', PathConfig.htmlCachePath)
+      // epubCachePath: EPUB 生成过程中的临时打包目录
+      shelljs.rm('-rf', PathConfig.epubCachePath)
+      this.log(`中间缓存目录清理完毕`)
+      // 按容量上限清理全局图片缓存(imgPool), 防止只进不出占满磁盘
+      CommonUtil.asyncCleanImgCache()
     }
-    this.log(`所有电子书输出完毕`)
-
-    // 清理中间缓存目录，只保留全局图片缓存和最终输出文件
-    this.log(`开始清理中间缓存目录`)
-    // htmlCachePath: EPUB 和 PDF 生成过程中的 HTML/图片临时目录
-    shelljs.rm('-rf', PathConfig.htmlCachePath)
-    // epubCachePath: EPUB 生成过程中的临时打包目录
-    shelljs.rm('-rf', PathConfig.epubCachePath)
-    this.log(`中间缓存目录清理完毕`)
     // 全部完成后打开文件夹
   }
 
