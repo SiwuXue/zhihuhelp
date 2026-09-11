@@ -10,7 +10,7 @@ export function matchId({
     rawInputText: string
 }
 ) {
-    let parseResult = querystring.parseUrl(rawInputText)
+    let parseResult = querystring.parseUrl(rawInputText ?? '')
     let rawId = ''
     let id = ''
     let rawContent = parseResult.url

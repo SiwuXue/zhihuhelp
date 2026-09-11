@@ -14,6 +14,8 @@ const Const_Headers_x_zse_93 = '101_3_3.0'
 // 创建axios实例
 const httpInstance = axios.create({
   timeout: CommonConfig.request_timeout_ms,
+  // 忽略环境变量中的HTTP_PROXY/HTTPS_PROXY等系统代理, 知乎请求直连
+  proxy: false,
   headers: {
     // 加上ua
     'User-Agent': RequestConfig.ua,

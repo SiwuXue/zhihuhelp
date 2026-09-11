@@ -96,7 +96,8 @@ export default class Util {
             let fetchTaskItem: Type_FormValue['taskItemList'][number] = {
                 "comment": "",
                 "id": taskItem.id,
-                "rawInputText": taskItem.rawInputText,
+                // 配置项可能没有 rawInputText(如仅 id+type 的任务), 缺失时兜底为空串, 避免 parseUrl(undefined) 崩溃
+                "rawInputText": taskItem.rawInputText ?? '',
                 "skipFetch": taskItem.skipFetch,
                 "type": taskItem.type
             }
@@ -134,7 +135,7 @@ export default class Util {
         rawInputText: string
     }
     ) {
-        let parseResult = querystring.parseUrl(rawInputText)
+        let parseResult = querystring.parseUrl(rawInputText ?? '')
         let rawId = ''
         let id = ''
         let rawContent = parseResult.url
@@ -203,6 +204,7 @@ export default class Util {
         rawInputText: string
     }
     ) {
+        rawInputText = rawInputText ?? ''
         if (rawInputText.includes('www.zhihu.com/people/')) {
             return ConstTaskConfig.Const_Task_Type_用户的所有回答
         }
