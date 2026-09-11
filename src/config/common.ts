@@ -21,6 +21,12 @@ export default class CommonConfig {
   static readonly db_uri: string = path.resolve(__dirname, `../../zhihu_v${CommonConfig.db_version}.sqlite`)
 
   /**
+   * 数据库自动清理策略: 每次任务开始时, 删除多少天前抓取的旧数据(回答/想法/文章/行为记录等)
+   * 防止 sqlite 数据库无限膨胀; 调大则保留更久, 调小则更省磁盘
+   */
+  static readonly db_retain_days = 30
+
+  /**
    * 每次停止执行任务时长
    */
   static protect_To_Wait_ms = 1000
