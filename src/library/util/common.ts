@@ -2,6 +2,7 @@ import logger from '../../library/logger'
 import fs from 'fs'
 import path from 'path'
 import PathConfig from '../../config/path'
+import CommonConfig from '../../config/common'
 import * as Type_TaskConfig from '../../type/task_config'
 import * as Const_TaskConfig from '../../constant/task_config'
 import AsyncPool from 'tiny-async-pool'
@@ -243,11 +244,17 @@ export default class CommonUtil {
   }
 
   /**
-   * 清理全局图片缓存: 总大小超过上限时, 按最近使用时间(mtime)删除最旧的图片, 直到低于上限
+   * 清理全局图片缓存(imgPool), 双重策略:
+   * 1. 按时间: 删除超过 retainDays 天未使用的图片
+   * 2. 按容量: 总大小超过上限时, 按最近使用时间(mtime)删除最旧的图片, 直到低于上限
    * 避免 imgPool 目录只进不出, 长期运行占用大量磁盘空间
    * @param maxCacheSize 缓存大小上限, 默认 2GB
+   * @param retainDays 图片保留天数, 默认取 CommonConfig.img_cache_retain_days
    */
-  static asyncCleanImgCache(maxCacheSize: number = 2 * 1024 * 1024 * 1024) {
+  static asyncCleanImgCache(
+    maxCacheSize: number = 2 * 1024 * 1024 * 1024,
+    retainDays: number = CommonConfig.img_cache_retain_days,
+  ) {
     const cachePath = PathConfig.imgCachePath
     if (fs.existsSync(cachePath) === false) {
       return
@@ -281,30 +288,47 @@ export default class CommonUtil {
     }
     walk(cachePath)
 
-    if (totalSize <= maxCacheSize) {
-      return
-    }
-    logger.log(
-      `图片缓存总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB 超过上限, 开始清理最久未使用的图片`,
-    )
-    // 按 mtime 升序(最旧在前)删除, 直到总大小低于上限的 80%
-    fileList.sort((a, b) => a.mtimeMs - b.mtimeMs)
-    let deletedCount = 0
-    for (let file of fileList) {
-      if (totalSize <= maxCacheSize * 0.8) {
-        break
-      }
+    let totalDeletedCount = 0
+    const deleteFile = (file: { filePath: string; size: number }) => {
       try {
         fs.unlinkSync(file.filePath)
         totalSize = totalSize - file.size
-        deletedCount++
+        totalDeletedCount++
       } catch (e) {
         // 忽略单个文件删除失败
       }
     }
-    logger.log(
-      `图片缓存清理完毕, 共删除 ${deletedCount} 个文件, 当前总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB`,
-    )
+
+    // 1. 按时间清理: 删除超过 retainDays 天未使用的图片
+    const retainThreshold = Date.now() - retainDays * 24 * 3600 * 1000
+    let expireFileList = fileList.filter((file) => file.mtimeMs < retainThreshold)
+    for (let file of expireFileList) {
+      deleteFile(file)
+    }
+    if (expireFileList.length > 0) {
+      logger.log(`图片缓存按时间清理: 已删除 ${expireFileList.length} 个超过${retainDays}天未使用的图片`)
+    }
+
+    // 2. 按容量清理: 总大小仍超过上限时, 从最旧开始删到上限的 80%
+    if (totalSize > maxCacheSize) {
+      logger.log(
+        `图片缓存总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB 超过上限, 开始清理最久未使用的图片`,
+      )
+      // 按 mtime 升序(最旧在前)删除, 直到总大小低于上限的 80%
+      fileList.sort((a, b) => a.mtimeMs - b.mtimeMs)
+      for (let file of fileList) {
+        if (totalSize <= maxCacheSize * 0.8) {
+          break
+        }
+        deleteFile(file)
+      }
+    }
+
+    if (totalDeletedCount > 0) {
+      logger.log(
+        `图片缓存清理完毕, 共删除 ${totalDeletedCount} 个文件, 当前总大小 ${Math.ceil(totalSize / 1024 / 1024)}MB`,
+      )
+    }
   }
 
   static getUuid() {

@@ -9,6 +9,7 @@ import PathConfig from '../config/path'
 import semver from 'semver'
 import dayjs from 'dayjs'
 import * as Date_Format from '../constant/date_format'
+import CommonUtil from '../library/util/common'
 
 type Type_Res_Version = {
   downloadUrl: 'http://www.baidu.com' | string
@@ -109,6 +110,9 @@ class InitEnv extends Base {
         return 0
       })
     this.log(`已清理Collection_Record表 ${deletedCount} 条过期数据`)
+
+    // 定期清理全局图片缓存(imgPool): 按时间+容量双重策略
+    CommonUtil.asyncCleanImgCache()
   }
 
   /**

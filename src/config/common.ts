@@ -27,6 +27,12 @@ export default class CommonConfig {
   static readonly db_retain_days = 30
 
   /**
+   * 图片缓存(imgPool)清理策略: 删除超过多少天未使用的图片文件
+   * 图片为 CDN 静态资源, 删除后可重新下载; 调大可减少重复下载, 调小更省磁盘
+   */
+  static readonly img_cache_retain_days = 90
+
+  /**
    * 每次停止执行任务时长
    */
   static protect_To_Wait_ms = 1000

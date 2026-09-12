@@ -47,19 +47,23 @@
 
 ## 开发
 
-```bash
-# 安装依赖
-npm install
+本地调试需要两个终端，按顺序启动：
 
-# 构建后端（tsc 编译 + 复制非 TS 资源）
+```bash
+# 1. 编译主进程（src/ -> dist/，tsc 编译 + 复制非 TS 资源）
 npm run build
 
-# 构建前端（Vite）
-npm run buildgui
+# 2. 终端 A：启动前端 Vite dev server（长驻，默认监听 8080）
+npm run startgui
 
-# 启动应用
+# 3. 终端 B：启动 Electron（长驻，会以 --zhihuhelp-debug 模式运行）
 npm start
 ```
+
+> 说明：
+> - `npm run startgui` 必须保持运行，Electron 启动时会自动探测 8080-8089 范围内正在运行的 Vite 服务并加载前端页面，因此请先启动前端、再启动 Electron。
+> - 若未启动前端（探测范围内没有 Vite 服务），窗口会白屏，属预期行为。
+> - 仅打包正式版时执行 `npm run buildgui`（构建前端产物到 `client/dist`），开发模式不需要。
 
 ## 技术栈
 
@@ -67,7 +71,7 @@ npm start
 - React 18 + Vite + Ant Design
 - TypeScript 5.9
 - dayjs
-- Puppeteer（PDF 生成）
+- Electron printToPDF（PDF 生成）
 - Sharp（图片处理与 LaTeX 公式渲染）
 
 ## 许可证
