@@ -59,7 +59,8 @@ jobs:
 
       - name: Build installer (macOS)
         if: runner.os == 'macOS'
-        run: pnpm exec electron-builder --mac --publish never
+        # 同时构建 Apple Silicon(arm64) 和 Intel(x64) 两个架构, 兼容两种 Mac
+        run: pnpm exec electron-builder --mac --x64 --arm64 --publish never
         env:
           CI: true
           CSC_IDENTITY_AUTO_DISCOVERY: false
