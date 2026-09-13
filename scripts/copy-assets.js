@@ -34,5 +34,34 @@ function copyFile(filePath) {
   console.log(`Copied: src/${relPath}`)
 }
 
+/**
+ * 整目录复制(保留目录结构), 用于复制 tsc 和扩展名白名单无法覆盖的静态资源目录
+ * 例如 EPUB 规范要求的 mimetype(无扩展名) 和 container.xml(.xml)
+ */
+function copyDir(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) {
+    return
+  }
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true })
+  }
+  for (const item of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, item.name)
+    const destPath = path.join(destDir, item.name)
+    if (item.isDirectory()) {
+      copyDir(srcPath, destPath)
+    } else {
+      fs.copyFileSync(srcPath, destPath)
+      console.log(`Copied: src/${path.relative(srcRoot, srcPath)}`)
+    }
+  }
+}
+
 walk(srcRoot)
+
+// EPUB 生成器依赖的静态资源(mimetype/container.xml/duokan-extension.xml)
+copyDir(
+  path.join(srcRoot, 'library', 'epub', 'resource'),
+  path.join(distRoot, 'library', 'epub', 'resource'),
+)
 console.log('Asset copy done')
