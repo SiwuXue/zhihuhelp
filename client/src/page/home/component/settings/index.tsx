@@ -125,6 +125,10 @@ export default () => {
       handleFunc.saveSetting.run({ autoCleanEnabled, dbRetainDays, imgCacheRetainDays: nextValue })
     },
     openDir: async (target: 'db' | 'media' | 'cache' | 'output') => {
+      if (typeof window.electronAPI['open-storage-dir'] !== 'function') {
+        message.warning('当前应用是旧版本主进程, 请重启应用(npm run start)后使用该功能')
+        return
+      }
       await window.electronAPI['open-storage-dir']({ target })
     },
     runCleanNow: async () => {

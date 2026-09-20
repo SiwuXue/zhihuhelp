@@ -25,6 +25,10 @@ export default () => {
 
   // 订阅主进程任务进度推送, 导出中实时展示(最多保留 50 条)
   useEffect(() => {
+    // 防御: 前端热更新后主进程未重启时, 旧preload未暴露该接口, 跳过订阅避免白屏
+    if (typeof window.electronAPI['on-task-progress'] !== 'function') {
+      return
+    }
     let unsubscribe = window.electronAPI['on-task-progress']((data: { message: string; timestamp: number }) => {
       if (store.exporting === false) {
         return

@@ -48,6 +48,10 @@ export default () => {
   // 每2秒同步任务执行状态(是否在跑/是否已暂停), 用于渲染暂停/继续按钮
   Ahooks.useInterval(async () => {
     try {
+      // 防御: 前端热更新后主进程未重启时接口不存在, 跳过以避免报错
+      if (typeof window.electronAPI['get-task-status'] !== 'function') {
+        return
+      }
       let status = await window.electronAPI['get-task-status']()
       setTaskStatus({ isRunning: status.isRunning === true, isPaused: status.isPaused === true })
     } catch (e) {
@@ -57,6 +61,10 @@ export default () => {
 
   // 暂停/继续任务
   const asyncTogglePause = async () => {
+    if (typeof window.electronAPI['pause-task'] !== 'function') {
+      message.warning('当前应用是旧版本主进程, 请等任务结束后重启应用(npm run start)再使用暂停功能')
+      return
+    }
     let status = taskStatus.isPaused
       ? await window.electronAPI['resume-task']()
       : await window.electronAPI['pause-task']()

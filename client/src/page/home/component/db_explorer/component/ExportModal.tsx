@@ -28,14 +28,21 @@ export default (props: Props) => {
     useEffect(() => {
         if (snap.exportModalOpen) {
             setBookname(`知乎数据导出_${dayjs().format('YYYY-MM-DD_HHmm')}`)
-            window.electronAPI['get-task-status']().then((status: { isRunning: boolean; isPaused: boolean }) => {
-                setIsPaused(status?.isPaused === true)
-            })
+            // 防御: 前端热更新后主进程未重启时接口不存在
+            if (typeof window.electronAPI['get-task-status'] === 'function') {
+                window.electronAPI['get-task-status']().then((status: { isRunning: boolean; isPaused: boolean }) => {
+                    setIsPaused(status?.isPaused === true)
+                })
+            }
         }
     }, [snap.exportModalOpen])
 
     // 暂停/继续导出任务
     let asyncTogglePause = async () => {
+        if (typeof window.electronAPI['pause-task'] !== 'function') {
+            message.warning('当前应用是旧版本主进程, 请等任务结束后重启应用(npm run start)再使用暂停功能')
+            return
+        }
         try {
             let status = isPaused
                 ? await window.electronAPI['resume-task']()
