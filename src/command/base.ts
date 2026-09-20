@@ -17,6 +17,7 @@ abstract class Base {
     await this.execute().catch((e) => {
       this.log('catch error')
       this.log(e.stack)
+      throw e
     })
     this.log('command finish')
   }

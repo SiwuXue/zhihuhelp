@@ -282,34 +282,38 @@ app.whenReady().then(() => {
       return '目前尚有任务执行, 请稍后'
     }
     isRunning = true
-    Logger.log('开始工作')
+    try {
+      Logger.log('开始工作')
 
-    // 将配置写入本地
-    await asyncUpdateCookie()
-    let oldConfig = CommonUtil.getConfig()
-    console.log("oldConfig => ", oldConfig)
-    config.requestConfig.cookie = oldConfig.requestConfig.cookie
-    console.log("config => ", config)
-    config.requestConfig.ua = oldConfig.requestConfig.ua
-    CommonUtil.saveConfig(config)
+      // 将配置写入本地
+      await asyncUpdateCookie()
+      let oldConfig = CommonUtil.getConfig()
+      config.requestConfig.cookie = oldConfig.requestConfig.cookie
+      config.requestConfig.ua = oldConfig.requestConfig.ua
+      CommonUtil.saveConfig(config)
 
-    Logger.log(`开始执行任务`)
+      Logger.log(`开始执行任务`)
 
-    // 此后操作均为异步操作, 无需等待
+      // 此后操作均为异步操作, 无需等待
 
-    Logger.log(`初始化运行环境`)
-    await CommandRegistry.handle(['Init:Env'])
+      Logger.log(`初始化运行环境`)
+      await CommandRegistry.handle(['Init:Env'])
 
-    Logger.log(`开始抓取数据`)
-    await CommandRegistry.handle(['Fetch:Customer'])
-    Logger.log(`开始生成电子书`)
-    await CommandRegistry.handle(['Generate:Customer'])
-    Logger.log(`所有任务执行完毕, 打开电子书文件夹 => `, PathConfig.outputPath)
-    // 输出打开文件夹
-    shell.showItemInFolder(PathConfig.outputPath)
-    isRunning = false
+      Logger.log(`开始抓取数据`)
+      await CommandRegistry.handle(['Fetch:Customer'])
+      Logger.log(`开始生成电子书`)
+      await CommandRegistry.handle(['Generate:Customer'])
+      Logger.log(`所有任务执行完毕, 打开电子书文件夹 => `, PathConfig.outputPath)
+      // 输出打开文件夹
+      shell.showItemInFolder(PathConfig.outputPath)
 
-    return 'success'
+      return 'success'
+    } catch (error) {
+      Logger.log('任务执行失败，未完成导出：', error instanceof Error ? error.message : String(error))
+      return 'failed'
+    } finally {
+      isRunning = false
+    }
   })
 
 

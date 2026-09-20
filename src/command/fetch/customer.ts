@@ -25,7 +25,6 @@ class FetchCustomer extends Base {
   async execute(): Promise<any> {
     this.log(`从${PathConfig.configUri}中读取配置文件`)
     let fetchConfigJSON = fs.readFileSync(PathConfig.configUri).toString()
-    this.log('content =>', fetchConfigJSON)
     let customerTaskConfig: Type_Task_Config.Type_Task_Config = json5.parse(fetchConfigJSON)
     this.log(`开始进行自定义抓取, 共有${customerTaskConfig.fetchTaskList.length}个任务`)
     // 首先, 将任务进行汇总

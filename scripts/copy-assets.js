@@ -40,7 +40,7 @@ function copyFile(filePath) {
  */
 function copyDir(srcDir, destDir) {
   if (!fs.existsSync(srcDir)) {
-    return
+    throw new Error(`Required asset directory is missing: ${srcDir}`)
   }
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true })
@@ -58,6 +58,9 @@ function copyDir(srcDir, destDir) {
 }
 
 walk(srcRoot)
+
+// public 包含封面、图片、图标及浏览器资源，必须完整复制，不能仅依赖扩展名白名单
+copyDir(path.join(srcRoot, 'public'), path.join(distRoot, 'public'))
 
 // EPUB 生成器依赖的静态资源(mimetype/container.xml/duokan-extension.xml)
 copyDir(
