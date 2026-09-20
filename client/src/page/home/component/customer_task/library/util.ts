@@ -6,6 +6,7 @@ import { Type_Status, Type_FormValue } from '../state/index'
 
 export type Type_Form_Config = {
     "bookTitle": "知乎助手生成的电子书",
+    "generateType": TypeTaskConfig.Type_Generate_Type,
     "taskItemList": {
         "type": TypeTaskConfig.Type_Item_Collection_Type | TypeTaskConfig.Type_Author_Collection_Type,
         "id": "xie-lu-tian-e" | string,
@@ -59,7 +60,8 @@ export default class Util {
             maxItemInBook: param["maxItemInBook"],
             "comment": param.comment,
             "orderByList": [],
-            generateType: "merge_by_task",
+            // 生成方式: 独立输出(每个任务单独成书) / 合并输出, 未传时兜底为独立输出
+            generateType: param["generateType"] || ConstTaskConfig.Const_Generate_Type_独立输出电子书,
             exportFormat: param.exportFormat || ConstTaskConfig.Const_Default_Export_Format_List,
             dateRange: param.dateRange || { startDate: null, endDate: null }
         }

@@ -38,7 +38,7 @@ export const Const_Default_FormValue: Type_FormValue = {
     "comment": "",
     "maxItemInBook": Consts_Task_Config.Const_Max_Question_Or_Article_In_Book,
     "orderItemList": [],
-    "generateType": Consts_Task_Config.Const_Generate_Type_合并输出电子书_按任务拆分章节,
+    "generateType": Consts_Task_Config.Const_Generate_Type_独立输出电子书,
     "exportFormat": Consts_Task_Config.Const_Default_Export_Format_List,
     "dateRange": {
         startDate: null,

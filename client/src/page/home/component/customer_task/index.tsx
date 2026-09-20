@@ -134,6 +134,7 @@ export default () => {
     form.setFieldValue('maxItemInBook', initValue.maxItemInBook)
     form.setFieldValue('comment', initValue.comment)
     form.setFieldValue('dateRange', initValue.dateRange)
+    form.setFieldValue('generateType', initValue.generateType)
 
     handleBatchTaskModal.syncToModalValue(initValue.taskItemList)
 
@@ -350,6 +351,24 @@ export default () => {
               })
             }}
           </Form.List>
+          <Form.Item
+            name="generateType"
+            label="生成方式"
+            labelCol={{
+              span: 3,
+            }}
+            extra="独立输出: 每个任务单独生成一本电子书(书名自动按任务命名, 忽略上方电子书名)"
+          >
+            <Radio.Group buttonStyle="solid">
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_独立输出电子书}>独立输出</Radio.Button>
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_按任务拆分章节}>
+                合并输出(按任务分章节)
+              </Radio.Button>
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_内容打乱重排}>
+                合并输出(打乱重排)
+              </Radio.Button>
+            </Radio.Group>
+          </Form.Item>
           <Form.Item
             name="imageQuilty"
             label="图片质量"
