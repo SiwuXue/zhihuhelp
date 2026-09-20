@@ -96,4 +96,13 @@ CREATE TABLE  IF NOT EXISTS `Author_Ask_Question` (
   `raw_json` json, --- COMMENT '原始响应json'
   --- '总答案记录表'
   PRIMARY KEY (`question_id`)
+);
+
+CREATE TABLE  IF NOT EXISTS `Export_Record` (
+  `record_type` varchar(20) NOT NULL , ---- COMMENT '条目类型: answer/pin/article',
+  `record_id` varchar(100) NOT NULL , ---- COMMENT '条目id',
+  `format` varchar(20) NOT NULL , ---- COMMENT '导出格式: epub/html/markdown/pdf',
+  `exported_at` int(11) NOT NULL  ---- COMMENT '导出时间戳(秒)'
+  --- '导出记录表', 按(条目, 格式)记录最近一次导出时间
+  PRIMARY KEY (`record_type`, `record_id`, `format`)
 ); 

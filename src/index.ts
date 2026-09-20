@@ -9,6 +9,12 @@ import * as FrontTools from './library/util/front_tools'
 import { setBridgeFunc } from './library/zhihu_encrypt/index'
 import * as Type_TaskConfig from './type/task_config'
 import MSummary from './model/summary'
+import MAnswer from './model/answer'
+import MPin from './model/pin'
+import MArticle from './model/article'
+import MExportRecord from './model/export_record'
+import GenerateSelected from './command/generate/selected'
+import dayjs from 'dayjs'
 import http from './library/http'
 import fs from 'fs'
 import path from 'path'
@@ -331,6 +337,186 @@ app.whenReady().then(() => {
     const summary = await MSummary.asyncGetSummaryInfo()
     return summary
   })
+
+  /**
+   * 获取数据库内的条目列表(数据浏览页), 支持分页/类型筛选/关键词搜索
+   */
+  ipcMain.handle(
+    'get-db-record-list',
+    async (event, { pageNo = 1, pageSize = 20, recordType = 'all', keyword = '' }) => {
+      const supportTypeList = ['answer', 'pin', 'article']
+      let targetTypeList = supportTypeList.includes(recordType) ? [recordType] : supportTypeList
+
+      type Type_DbRecordItem = {
+        recordType: string
+        recordId: string
+        title: string
+        authorName: string
+        sourceTitle: string
+        voteupCount: number
+        commentCount: number
+        imgCount: number
+        createdAt: number
+      }
+
+      // 统计内容中的图片数量
+      let countImg = (content: any) => {
+        let str = typeof content === 'string' ? content : JSON.stringify(content ?? '')
+        return (str.match(/<img/g) || []).length
+      }
+
+      let allItemList: Type_DbRecordItem[] = []
+      for (let type of targetTypeList) {
+        let rowList = []
+        if (type === 'answer') {
+          rowList = await MAnswer.db.select(['answer_id', 'raw_json']).from(MAnswer.TABLE_NAME).catch(() => [])
+        } else if (type === 'pin') {
+          rowList = await MPin.db.select(['pin_id', 'raw_json']).from(MPin.TABLE_NAME).catch(() => [])
+        } else {
+          rowList = await MArticle.db.select(['article_id', 'raw_json']).from(MArticle.TABLE_NAME).catch(() => [])
+        }
+        for (let row of rowList) {
+          let raw: any = {}
+          try {
+            raw = JSON.parse(row.raw_json || '{}')
+          } catch (e) {
+            raw = {}
+          }
+          if (type === 'answer') {
+            allItemList.push({
+              recordType: 'answer',
+              recordId: row.answer_id,
+              title: raw?.question?.title || `回答:${row.answer_id}`,
+              authorName: raw?.author?.name || '',
+              sourceTitle: raw?.question?.title || '',
+              voteupCount: raw?.voteup_count ?? 0,
+              commentCount: raw?.comment_count ?? 0,
+              imgCount: countImg(raw?.content),
+              createdAt: raw?.created_time ?? 0,
+            })
+          } else if (type === 'pin') {
+            allItemList.push({
+              recordType: 'pin',
+              recordId: row.pin_id,
+              title: raw?.excerpt_title || `想法:${row.pin_id}`,
+              authorName: raw?.author?.name || '',
+              sourceTitle: '想法',
+              voteupCount: raw?.like_count ?? 0,
+              commentCount: raw?.comment_count ?? 0,
+              imgCount: countImg(raw?.content),
+              createdAt: raw?.created ?? 0,
+            })
+          } else {
+            allItemList.push({
+              recordType: 'article',
+              recordId: row.article_id,
+              title: raw?.title || `文章:${row.article_id}`,
+              authorName: raw?.author?.name || '',
+              sourceTitle: raw?.column?.title || raw?.column?.name || '',
+              voteupCount: raw?.voteup_count ?? 0,
+              commentCount: raw?.comment_count ?? 0,
+              imgCount: countImg(raw?.content),
+              createdAt: raw?.created ?? 0,
+            })
+          }
+        }
+      }
+
+      // 关键词过滤(标题/作者)
+      let kw = String(keyword ?? '').trim()
+      if (kw) {
+        allItemList = allItemList.filter((item) => item.title.includes(kw) || item.authorName.includes(kw))
+      }
+
+      // 按创建时间倒序
+      allItemList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+
+      let total = allItemList.length
+      let start = (Math.max(1, pageNo) - 1) * pageSize
+      let pageItemList = allItemList.slice(start, start + pageSize)
+
+      // 组装导出状态
+      let exportedMap = await MExportRecord.asyncGetExportedMap(
+        pageItemList.map((item) => ({ recordType: item.recordType, recordId: item.recordId })),
+      )
+      let formatList = ['epub', 'html', 'markdown', 'pdf']
+      let recordList = pageItemList.map((item) => {
+        let exportedList = []
+        for (let format of formatList) {
+          let exportedAt = exportedMap.get(`${item.recordType}_${item.recordId}_${format}`)
+          if (exportedAt) {
+            exportedList.push({ format, exportedAt })
+          }
+        }
+        return { ...item, exportedList }
+      })
+
+      return { total, recordList }
+    },
+  )
+
+  /**
+   * 导出数据浏览页勾选的条目为电子书
+   */
+  ipcMain.handle(
+    'export-db-records',
+    async (event, { recordList, formats, bookname = '', force = false }) => {
+      if (isRunning) {
+        return { status: 'busy', message: '目前尚有任务执行, 请稍后' }
+      }
+      if (!Array.isArray(recordList) || recordList.length === 0) {
+        return { status: 'failed', message: '未选择要导出的条目' }
+      }
+      if (!Array.isArray(formats) || formats.length === 0) {
+        return { status: 'failed', message: '未选择导出格式' }
+      }
+
+      isRunning = true
+      try {
+        // 老用户库升级兜底, 确保导出记录表存在
+        await MExportRecord.asyncEnsureTable()
+
+        // 计算(条目x格式)的导出冲突
+        let exportedMap = await MExportRecord.asyncGetExportedMap(recordList)
+        let conflictList = []
+        for (let item of recordList) {
+          for (let format of formats) {
+            let exportedAt = exportedMap.get(`${item.recordType}_${item.recordId}_${format}`)
+            if (exportedAt) {
+              conflictList.push({ ...item, format, exportedAt })
+            }
+          }
+        }
+        if (conflictList.length > 0 && force === false) {
+          return { status: 'needConfirm', conflictList }
+        }
+
+        // 复用任务配置中的图片质量与水印设置
+        let config = CommonUtil.getConfig()
+        let generateConfig = config.generateConfig || ({} as any)
+        let finalBookname = String(bookname || '').trim() || `知乎数据导出_${dayjs().format('YYYY-MM-DD_HHmm')}`
+
+        let cmd = new GenerateSelected()
+        cmd.initTask({
+          recordList,
+          formats,
+          bookname: finalBookname,
+          imageQuilty: generateConfig.imageQuilty,
+          watermark: generateConfig.comment || '',
+        })
+        await cmd.run()
+
+        Logger.log(`选中数据导出完毕, 打开电子书文件夹 => `, PathConfig.outputPath)
+        shell.showItemInFolder(PathConfig.outputPath)
+        return { status: 'success' }
+      } catch (error) {
+        Logger.log('选中数据导出失败:', error instanceof Error ? error.message : String(error))
+        return { status: 'failed', message: error instanceof Error ? error.message : String(error) }
+      } finally {
+        isRunning = false
+      }
+    },
+  )
 
 
   // 清空所有登录信息
