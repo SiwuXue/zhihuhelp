@@ -17,6 +17,7 @@ import GenerateSelected from './command/generate/selected'
 import UserSetting from './library/user_setting'
 import DataCleaner from './library/data_cleaner'
 import StorageUtil from './library/storage'
+import ProgressReporter from './library/progress'
 import CommonConfig from './config/common'
 import dayjs from 'dayjs'
 import http from './library/http'
@@ -273,6 +274,13 @@ app.on('activate', function () {
 })
 
 app.whenReady().then(() => {
+  // 任务进度广播: 命令日志(Base.log)转发给渲染进程, 供前端实时展示任务进度
+  ProgressReporter.setListener((message) => {
+    if (mainWindow && mainWindow.isDestroyed() === false) {
+      mainWindow.webContents.send('task-progress', { message, timestamp: Date.now() })
+    }
+  })
+
   // 打开输出文件夹
   ipcMain.handle('open-output-dir', async () => {
     console.log("PathConfig.outputPath => ", PathConfig.outputPath)
@@ -528,12 +536,14 @@ app.whenReady().then(() => {
   ipcMain.handle('get-storage-summary', async () => {
     let database = await StorageUtil.asyncGetDatabaseStats()
     let media = StorageUtil.asyncGetMediaStats()
+    let cache = StorageUtil.asyncGetCacheStats()
     let output = StorageUtil.asyncGetOutputStats()
     return {
       database,
       media,
+      cache,
       output,
-      totalSizeBytes: database.sizeBytes + media.sizeBytes + output.sizeBytes,
+      totalSizeBytes: database.sizeBytes + media.sizeBytes + cache.sizeBytes + output.sizeBytes,
     }
   })
 
@@ -556,10 +566,23 @@ app.whenReady().then(() => {
    */
   ipcMain.handle(
     'save-clean-settings',
-    async (event, { autoCleanEnabled, dbRetainDays }: { autoCleanEnabled: boolean; dbRetainDays: number }) => {
+    async (
+      event,
+      {
+        autoCleanEnabled,
+        dbRetainDays,
+        imgCacheRetainDays,
+      }: { autoCleanEnabled: boolean; dbRetainDays: number; imgCacheRetainDays?: number },
+    ) => {
       let setting = UserSetting.getSetting()
       setting.autoCleanEnabled = autoCleanEnabled === true
       setting.dbRetainDays = UserSetting.normalizeRetainDays(dbRetainDays)
+      if (imgCacheRetainDays !== undefined) {
+        setting.imgCacheRetainDays = UserSetting.normalizeRetainDays(
+          imgCacheRetainDays,
+          CommonConfig.img_cache_retain_days,
+        )
+      }
       UserSetting.saveSetting(setting)
       return setting
     },
@@ -591,12 +614,14 @@ app.whenReady().then(() => {
   /**
    * 设置页: 打开本地目录
    */
-  ipcMain.handle('open-storage-dir', async (event, { target }: { target: 'db' | 'media' | 'output' }) => {
+  ipcMain.handle('open-storage-dir', async (event, { target }: { target: 'db' | 'media' | 'cache' | 'output' }) => {
     let dirUri = PathConfig.outputPath
     if (target === 'db') {
       dirUri = CommonConfig.db_uri
     } else if (target === 'media') {
       dirUri = PathConfig.imgCachePath
+    } else if (target === 'cache') {
+      dirUri = PathConfig.cachePath
     }
     shell.showItemInFolder(dirUri)
     return true

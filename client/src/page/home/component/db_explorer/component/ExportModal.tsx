@@ -57,12 +57,22 @@ export default (props: Props) => {
             />
             <div style={{ marginTop: 16, marginBottom: 8 }}>导出格式</div>
             <div>{formatLabelList.join(' / ') || '-'}</div>
-            <Alert
-                style={{ marginTop: 16 }}
-                type="info"
-                showIcon
-                message="导出耗时取决于内容量与图片数量, 可在运行日志页查看进度。"
-            />
+            {snap.exporting && snap.progressLog.length > 0 ? (
+                <div className="export_progress_block">
+                    {snap.progressLog.slice(-8).map((item, idx) => (
+                        <div key={`${item.timestamp}-${idx}`} className="export_progress_line">
+                            {item.message}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <Alert
+                    style={{ marginTop: 16 }}
+                    type="info"
+                    showIcon
+                    message="导出耗时取决于内容量与图片数量, 开始后将在下方实时显示进度。"
+                />
+            )}
         </Modal>
     )
 }

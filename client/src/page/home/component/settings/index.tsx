@@ -14,6 +14,7 @@ type Type_Dir_Stats = {
 type Type_Storage_Summary = {
   database: Type_Dir_Stats & { answer: number; pin: number; article: number }
   media: Type_Dir_Stats
+  cache: Type_Dir_Stats
   output: Type_Dir_Stats
   totalSizeBytes: number
 }
@@ -22,6 +23,7 @@ type Type_Clean_Status = {
   setting: {
     autoCleanEnabled: boolean
     dbRetainDays: number
+    imgCacheRetainDays: number
     lastCleanAt: number | null
   }
   // 早于该时间(秒级时间戳)的数据将被清理
@@ -59,6 +61,7 @@ export default () => {
   let [cleaning, setCleaning] = useState<boolean>(false)
   let [autoCleanEnabled, setAutoCleanEnabled] = useState<boolean>(false)
   let [dbRetainDays, setDbRetainDays] = useState<number>(30)
+  let [imgCacheRetainDays, setImgCacheRetainDays] = useState<number>(90)
   let [saveState, setSaveState] = useState<'synced' | 'pending' | 'saving'>('synced')
 
   const handleFunc = {
@@ -87,13 +90,14 @@ export default () => {
     },
     // 设置变更后自动保存(防抖), 保存成功后刷新清理预览
     saveSetting: Ahooks.useDebounceFn(
-      async (next: { autoCleanEnabled: boolean; dbRetainDays: number }) => {
+      async (next: { autoCleanEnabled: boolean; dbRetainDays: number; imgCacheRetainDays: number }) => {
         setSaveState('saving')
         try {
           let setting = await window.electronAPI['save-clean-settings'](next)
           // 主进程会对非法值做归一化, 同步回表单
           setAutoCleanEnabled(setting.autoCleanEnabled)
           setDbRetainDays(setting.dbRetainDays)
+          setImgCacheRetainDays(setting.imgCacheRetainDays)
           setSaveState('synced')
           await handleFunc.refreshCleanStatus()
         } catch (e: any) {
@@ -106,15 +110,21 @@ export default () => {
     onChangeAutoClean: (checked: boolean) => {
       setAutoCleanEnabled(checked)
       setSaveState('pending')
-      handleFunc.saveSetting.run({ autoCleanEnabled: checked, dbRetainDays })
+      handleFunc.saveSetting.run({ autoCleanEnabled: checked, dbRetainDays, imgCacheRetainDays })
     },
     onChangeRetainDays: (value: number | null) => {
       let nextValue = value ?? 30
       setDbRetainDays(nextValue)
       setSaveState('pending')
-      handleFunc.saveSetting.run({ autoCleanEnabled, dbRetainDays: nextValue })
+      handleFunc.saveSetting.run({ autoCleanEnabled, dbRetainDays: nextValue, imgCacheRetainDays })
     },
-    openDir: async (target: 'db' | 'media' | 'output') => {
+    onChangeImgCacheRetainDays: (value: number | null) => {
+      let nextValue = value ?? 90
+      setImgCacheRetainDays(nextValue)
+      setSaveState('pending')
+      handleFunc.saveSetting.run({ autoCleanEnabled, dbRetainDays, imgCacheRetainDays: nextValue })
+    },
+    openDir: async (target: 'db' | 'media' | 'cache' | 'output') => {
       await window.electronAPI['open-storage-dir']({ target })
     },
     runCleanNow: async () => {
@@ -145,6 +155,7 @@ export default () => {
       setCleanStatus(res)
       setAutoCleanEnabled(res.setting.autoCleanEnabled)
       setDbRetainDays(res.setting.dbRetainDays)
+      setImgCacheRetainDays(res.setting.imgCacheRetainDays)
     } catch (e: any) {
       message.error(`获取清理状态失败:${e?.message ?? e}`)
     }
@@ -210,6 +221,14 @@ export default () => {
             </Button>
           </div>
           <div className="stat_cell">
+            <div className="stat_label">中间缓存</div>
+            <div className="stat_value">{formatSize(storageSummary?.cache.sizeBytes ?? 0)}</div>
+            <div className="stat_sub">{storageSummary?.cache.fileCount ?? 0} 个文件</div>
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => handleFunc.openDir('cache')}>
+              打开缓存目录
+            </Button>
+          </div>
+          <div className="stat_cell">
             <div className="stat_label">导出结果</div>
             <div className="stat_value">{formatSize(storageSummary?.output.sizeBytes ?? 0)}</div>
             <div className="stat_sub">{storageSummary?.output.fileCount ?? 0} 个文件</div>
@@ -241,20 +260,40 @@ export default () => {
           </Checkbox>
           <Typography.Text type="secondary">应用运行期间会在设定时间自动执行</Typography.Text>
         </div>
-        <div className="retain_days_block">
-          <div className="retain_days_label">数据保留时长(天)</div>
-          <InputNumber
-            min={1}
-            max={3650}
-            precision={0}
-            value={dbRetainDays}
-            style={{ width: 120 }}
-            onChange={handleFunc.onChangeRetainDays}
-          />
-          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-            只保留最近 {dbRetainDays} 天内更新的记录
-          </Typography.Text>
-        </div>
+        <Row gutter={24}>
+          <Col>
+            <div className="retain_days_block">
+              <div className="retain_days_label">数据保留时长(天)</div>
+              <InputNumber
+                min={1}
+                max={3650}
+                precision={0}
+                value={dbRetainDays}
+                style={{ width: 120 }}
+                onChange={handleFunc.onChangeRetainDays}
+              />
+              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                只保留最近 {dbRetainDays} 天内更新的记录
+              </Typography.Text>
+            </div>
+          </Col>
+          <Col>
+            <div className="retain_days_block">
+              <div className="retain_days_label">图片缓存保留天数</div>
+              <InputNumber
+                min={1}
+                max={3650}
+                precision={0}
+                value={imgCacheRetainDays}
+                style={{ width: 120 }}
+                onChange={handleFunc.onChangeImgCacheRetainDays}
+              />
+              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                删除超过 {imgCacheRetainDays} 天未使用的图片缓存
+              </Typography.Text>
+            </div>
+          </Col>
+        </Row>
         <div className="clean_status_block">
           <div className="status_line_main">
             {autoCleanEnabled

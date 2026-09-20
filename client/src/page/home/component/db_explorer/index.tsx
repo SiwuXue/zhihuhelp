@@ -1,5 +1,5 @@
 import { Button, Card, Input, message, Modal, Radio, Space, Tag, Typography } from 'antd'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createStore } from './state/index'
 import { useSnapshot } from 'valtio'
 import * as Ahooks from 'ahooks'
@@ -22,6 +22,17 @@ export default () => {
 
   // 待导出的目标条目(点击导出按钮时确定)
   let refExportTarget = useRef<Types.Export_Record_Param_Item[]>([])
+
+  // 订阅主进程任务进度推送, 导出中实时展示(最多保留 50 条)
+  useEffect(() => {
+    let unsubscribe = window.electronAPI['on-task-progress']((data: { message: string; timestamp: number }) => {
+      if (store.exporting === false) {
+        return
+      }
+      store.progressLog = [...store.progressLog, data].slice(-50)
+    })
+    return unsubscribe
+  }, [])
 
   const handleRecordFunc = {
     getBaseInfo: async () => {
@@ -101,6 +112,7 @@ export default () => {
         return
       }
       store.exporting = true
+      store.progressLog = []
       try {
         let res: Types.Export_Res = await window.electronAPI['export-db-records']({
           recordList: targetList,

@@ -1,5 +1,6 @@
 import lodash from 'lodash'
 import logger from '../library/logger'
+import ProgressReporter from '../library/progress'
 
 /**
  * 轻量级命令基类，替代 @adonisjs/ace 的 BaseCommand
@@ -40,6 +41,8 @@ abstract class Base {
       }
     }
     logger.log(`[${this.constructor.name}] ` + message)
+    // 同步推送给渲染进程, 供前端实时展示任务进度
+    ProgressReporter.report(`[${this.constructor.name}] ` + message)
   }
 
   /**
@@ -55,6 +58,8 @@ abstract class Base {
       }
     }
     logger.warn(`[${this.constructor.name}] ` + message)
+    // 同步推送给渲染进程, 供前端实时展示任务进度
+    ProgressReporter.report(`[${this.constructor.name}] ` + message)
   }
 }
 

@@ -32,6 +32,7 @@ export const Const_Page_Size = 20
 
 export const Default_Status: Types.Status = {
     forceUpdate: 0,
+    progressLog: [],
     listQuery: {
         pageNo: 1,
         pageSize: Const_Page_Size,

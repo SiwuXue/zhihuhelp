@@ -8,6 +8,8 @@ export type Type_User_Setting = {
   autoCleanEnabled: boolean
   // 数据保留天数: 删除多少天前抓取的旧数据(回答/想法/文章/行为记录等)
   dbRetainDays: number
+  // 图片缓存保留天数: 删除多少天未使用的图片文件
+  imgCacheRetainDays: number
   // 上次清理时间戳(毫秒), null 表示从未清理过
   lastCleanAt: number | null
 }
@@ -20,6 +22,7 @@ class UserSetting {
   static DEFAULT_SETTING: Type_User_Setting = {
     autoCleanEnabled: false,
     dbRetainDays: CommonConfig.db_retain_days,
+    imgCacheRetainDays: CommonConfig.img_cache_retain_days,
     lastCleanAt: null,
   }
 
@@ -36,6 +39,7 @@ class UserSetting {
       return {
         autoCleanEnabled: setting?.autoCleanEnabled === true,
         dbRetainDays: this.normalizeRetainDays(setting?.dbRetainDays),
+        imgCacheRetainDays: this.normalizeRetainDays(setting?.imgCacheRetainDays, CommonConfig.img_cache_retain_days),
         lastCleanAt: typeof setting?.lastCleanAt === 'number' ? setting.lastCleanAt : null,
       }
     } catch (e) {
@@ -50,6 +54,7 @@ class UserSetting {
     let normalizedSetting: Type_User_Setting = {
       autoCleanEnabled: setting?.autoCleanEnabled === true,
       dbRetainDays: this.normalizeRetainDays(setting?.dbRetainDays),
+      imgCacheRetainDays: this.normalizeRetainDays(setting?.imgCacheRetainDays, CommonConfig.img_cache_retain_days),
       lastCleanAt: typeof setting?.lastCleanAt === 'number' ? setting.lastCleanAt : null,
     }
     fs.writeFileSync(this.FILE_URI, JSON.stringify(normalizedSetting, null, 2))
@@ -57,12 +62,12 @@ class UserSetting {
   }
 
   /**
-   * 保留天数合法化: 限定在 1~3650 之间
+   * 保留天数合法化: 限定在 1~3650 之间, 非法时回退到 fallback
    */
-  static normalizeRetainDays(value: any): number {
+  static normalizeRetainDays(value: any, fallback: number = CommonConfig.db_retain_days): number {
     let days = parseInt(String(value ?? ''), 10)
     if (isNaN(days) || days < 1) {
-      return CommonConfig.db_retain_days
+      return fallback
     }
     if (days > 3650) {
       return 3650

@@ -60,6 +60,13 @@ export type Status = {
      */
     forceUpdate: number,
     /**
+     * 任务进度日志(导出中由主进程实时推送)
+     */
+    progressLog: {
+        message: string,
+        timestamp: number,
+    }[],
+    /**
      * 列表查询条件
      */
     listQuery: {

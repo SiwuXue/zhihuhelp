@@ -14,7 +14,8 @@ class DataCleaner {
    * 清理 retainDays 天前的过期数据, retainDays 缺省时读取用户设置
    */
   static async asyncCleanExpiredData(retainDays?: number) {
-    let finalRetainDays = retainDays ?? UserSetting.getSetting().dbRetainDays
+    let setting = UserSetting.getSetting()
+    let finalRetainDays = retainDays ?? setting.dbRetainDays
     let threshold = dayjs().subtract(finalRetainDays, 'day').unix()
     Logger.log(
       `[DataCleaner] 开始清理${finalRetainDays}天前的历史数据, 时间阈值: ${dayjs(threshold * 1000).format(Date_Format.Const_Display_By_Second)}`,
@@ -42,8 +43,8 @@ class DataCleaner {
       })
     Logger.log(`[DataCleaner] 已清理Collection_Record表 ${deletedCount} 条过期数据`)
 
-    // 定期清理全局图片缓存(imgPool): 按时间+容量双重策略
-    CommonUtil.asyncCleanImgCache()
+    // 定期清理全局图片缓存(imgPool): 按时间+容量双重策略, 图片保留天数读用户设置
+    CommonUtil.asyncCleanImgCache(2 * 1024 * 1024 * 1024, setting.imgCacheRetainDays)
     return
   }
 

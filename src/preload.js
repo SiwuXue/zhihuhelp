@@ -16,6 +16,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ['save-clean-settings']: async (...args) => ipcRenderer.invoke('save-clean-settings', ...args),
   ['run-clean-now']: async () => ipcRenderer.invoke('run-clean-now'),
   ['open-storage-dir']: async (...args) => ipcRenderer.invoke('open-storage-dir', ...args),
+  ['on-task-progress']: (callback) => {
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('task-progress', listener)
+    // 返回取消订阅函数
+    return () => ipcRenderer.removeListener('task-progress', listener)
+  },
   ['get-log-content']: async () => {
     const res = await ipcRenderer.invoke('get-log-content')
     return res

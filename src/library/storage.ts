@@ -100,6 +100,19 @@ class StorageUtil {
   }
 
   /**
+   * 中间缓存(html/epub)占用: 任务结束后会自动清理, 平时接近 0
+   */
+  static asyncGetCacheStats() {
+    let htmlStats = this.asyncGetDirStats(PathConfig.htmlCachePath)
+    let epubStats = this.asyncGetDirStats(PathConfig.epubCachePath)
+    return {
+      exists: htmlStats.exists || epubStats.exists,
+      sizeBytes: htmlStats.sizeBytes + epubStats.sizeBytes,
+      fileCount: htmlStats.fileCount + epubStats.fileCount,
+    }
+  }
+
+  /**
    * 导出结果占用
    */
   static asyncGetOutputStats() {
