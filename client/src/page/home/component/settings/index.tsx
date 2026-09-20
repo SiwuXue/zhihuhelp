@@ -3,6 +3,8 @@ import { useState } from 'react'
 import * as Ahooks from 'ahooks'
 import dayjs from 'dayjs'
 
+import About from '../about'
+
 import './index.less'
 
 type Type_Dir_Stats = {
@@ -63,6 +65,7 @@ export default () => {
   let [dbRetainDays, setDbRetainDays] = useState<number>(30)
   let [imgCacheRetainDays, setImgCacheRetainDays] = useState<number>(90)
   let [saveState, setSaveState] = useState<'synced' | 'pending' | 'saving'>('synced')
+  let [aboutOpen, setAboutOpen] = useState<boolean>(false)
 
   const handleFunc = {
     getStorageSummary: async () => {
@@ -343,6 +346,21 @@ export default () => {
           </Typography.Text>
         </div>
       </Card>
+
+      <Card
+        title={
+          <span>
+            <span className="card_no">04</span>关于
+          </span>
+        }
+      >
+        <div className="manual_clean_row">
+          <Button onClick={() => setAboutOpen(true)}>关于知乎助手</Button>
+          <Typography.Text type="secondary">查看版本信息、项目主页、作者博客与赞助方式</Typography.Text>
+        </div>
+      </Card>
+
+      <About open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   )
 }

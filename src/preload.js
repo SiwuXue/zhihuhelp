@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   ['get-task-default-title']: async (...args) => ipcRenderer.invoke('get-task-default-title', ...args),
   ['get-common-config']: async () => ipcRenderer.invoke('get-common-config'),
+  ['get-app-version']: async () => ipcRenderer.invoke('get-app-version'),
+  ['open-external']: async (...args) => ipcRenderer.invoke('open-external', ...args),
   ['start-customer-task']: async (...args) => ipcRenderer.invoke('start-customer-task', ...args),
   ['pause-task']: async () => ipcRenderer.invoke('pause-task'),
   ['resume-task']: async () => ipcRenderer.invoke('resume-task'),

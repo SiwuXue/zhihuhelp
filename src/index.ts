@@ -312,6 +312,20 @@ app.whenReady().then(() => {
     return config
   })
 
+  // 获取应用版本号(关于弹窗展示)
+  ipcMain.handle('get-app-version', () => {
+    return CommonConfig.version
+  })
+
+  // 用系统默认浏览器打开外部链接(关于弹窗的项目主页/博客/爱发电), 仅允许 http/https 协议
+  ipcMain.handle('open-external', async (event, { uri }: { uri: string }) => {
+    if (typeof uri !== 'string' || /^https?:\/\//.test(uri) === false) {
+      return false
+    }
+    await shell.openExternal(uri)
+    return true
+  })
+
   // 启动任务
   ipcMain.handle('start-customer-task', async (event, { config }: { config: Type_TaskConfig.Type_Task_Config }) => {
     if (isRunning) {
