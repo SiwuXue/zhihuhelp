@@ -11,6 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ['get-db-summary-info']: async () => ipcRenderer.invoke('get-db-summary-info'),
   ['get-db-record-list']: async (...args) => ipcRenderer.invoke('get-db-record-list', ...args),
   ['export-db-records']: async (...args) => ipcRenderer.invoke('export-db-records', ...args),
+  ['get-storage-summary']: async () => ipcRenderer.invoke('get-storage-summary'),
+  ['get-clean-status']: async () => ipcRenderer.invoke('get-clean-status'),
+  ['save-clean-settings']: async (...args) => ipcRenderer.invoke('save-clean-settings', ...args),
+  ['run-clean-now']: async () => ipcRenderer.invoke('run-clean-now'),
+  ['open-storage-dir']: async (...args) => ipcRenderer.invoke('open-storage-dir', ...args),
   ['get-log-content']: async () => {
     const res = await ipcRenderer.invoke('get-log-content')
     return res

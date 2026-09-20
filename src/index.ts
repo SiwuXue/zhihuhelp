@@ -14,6 +14,10 @@ import MPin from './model/pin'
 import MArticle from './model/article'
 import MExportRecord from './model/export_record'
 import GenerateSelected from './command/generate/selected'
+import UserSetting from './library/user_setting'
+import DataCleaner from './library/data_cleaner'
+import StorageUtil from './library/storage'
+import CommonConfig from './config/common'
 import dayjs from 'dayjs'
 import http from './library/http'
 import fs from 'fs'
@@ -518,6 +522,85 @@ app.whenReady().then(() => {
     },
   )
 
+  /**
+   * 设置页: 本地存储占用统计
+   */
+  ipcMain.handle('get-storage-summary', async () => {
+    let database = await StorageUtil.asyncGetDatabaseStats()
+    let media = StorageUtil.asyncGetMediaStats()
+    let output = StorageUtil.asyncGetOutputStats()
+    return {
+      database,
+      media,
+      output,
+      totalSizeBytes: database.sizeBytes + media.sizeBytes + output.sizeBytes,
+    }
+  })
+
+  /**
+   * 设置页: 清理设置与过期数据预览
+   */
+  ipcMain.handle('get-clean-status', async () => {
+    let setting = UserSetting.getSetting()
+    let preview = await DataCleaner.asyncGetExpiredPreview(setting.dbRetainDays)
+    return {
+      setting,
+      // 早于该时间(秒级时间戳)的数据将被清理
+      threshold: preview.threshold,
+      expiredCount: preview.expiredCount,
+    }
+  })
+
+  /**
+   * 设置页: 保存清理设置
+   */
+  ipcMain.handle(
+    'save-clean-settings',
+    async (event, { autoCleanEnabled, dbRetainDays }: { autoCleanEnabled: boolean; dbRetainDays: number }) => {
+      let setting = UserSetting.getSetting()
+      setting.autoCleanEnabled = autoCleanEnabled === true
+      setting.dbRetainDays = UserSetting.normalizeRetainDays(dbRetainDays)
+      UserSetting.saveSetting(setting)
+      return setting
+    },
+  )
+
+  /**
+   * 设置页: 立即清理过期数据(不可撤销)
+   */
+  ipcMain.handle('run-clean-now', async () => {
+    if (isRunning) {
+      return { status: 'busy', message: '目前尚有任务执行, 请稍后' }
+    }
+    isRunning = true
+    try {
+      let setting = UserSetting.getSetting()
+      await DataCleaner.asyncCleanExpiredData(setting.dbRetainDays)
+      setting.lastCleanAt = Date.now()
+      UserSetting.saveSetting(setting)
+      Logger.log('[设置页] 手动清理执行完毕')
+      return { status: 'success' }
+    } catch (error) {
+      Logger.log('[设置页] 手动清理失败:', error instanceof Error ? error.message : String(error))
+      return { status: 'failed', message: error instanceof Error ? error.message : String(error) }
+    } finally {
+      isRunning = false
+    }
+  })
+
+  /**
+   * 设置页: 打开本地目录
+   */
+  ipcMain.handle('open-storage-dir', async (event, { target }: { target: 'db' | 'media' | 'output' }) => {
+    let dirUri = PathConfig.outputPath
+    if (target === 'db') {
+      dirUri = CommonConfig.db_uri
+    } else if (target === 'media') {
+      dirUri = PathConfig.imgCachePath
+    }
+    shell.showItemInFolder(dirUri)
+    return true
+  })
 
   // 清空所有登录信息
   ipcMain.handle('clear-all-session-storage', async () => {
@@ -527,6 +610,44 @@ app.whenReady().then(() => {
 
     return true
   })
+
+  /**
+   * 自动清理: 应用运行期间, 每小时检查一次; 距上次清理超过24小时且当前无任务时执行
+   */
+  const Auto_Clean_Check_Interval_ms = 60 * 60 * 1000
+  const Auto_Clean_Min_Gap_ms = 24 * 60 * 60 * 1000
+  const asyncTryAutoClean = async () => {
+    let setting = UserSetting.getSetting()
+    if (setting.autoCleanEnabled === false) {
+      return
+    }
+    let lastCleanAt = setting.lastCleanAt ?? 0
+    if (Date.now() - lastCleanAt < Auto_Clean_Min_Gap_ms) {
+      return
+    }
+    if (isRunning) {
+      return
+    }
+    isRunning = true
+    try {
+      Logger.log(`[AutoClean] 开始执行定时清理(保留${setting.dbRetainDays}天)`)
+      await DataCleaner.asyncCleanExpiredData(setting.dbRetainDays)
+      setting.lastCleanAt = Date.now()
+      UserSetting.saveSetting(setting)
+      Logger.log(`[AutoClean] 定时清理执行完毕`)
+    } catch (error) {
+      Logger.log(`[AutoClean] 定时清理失败:`, error instanceof Error ? error.message : String(error))
+    } finally {
+      isRunning = false
+    }
+  }
+  // 启动后10秒检查一次(处理上次运行期间到期的清理), 之后每小时检查一次
+  setTimeout(() => {
+    asyncTryAutoClean()
+  }, 10 * 1000)
+  setInterval(() => {
+    asyncTryAutoClean()
+  }, Auto_Clean_Check_Interval_ms)
 
 
   /**

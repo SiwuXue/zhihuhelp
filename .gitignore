@@ -57,6 +57,8 @@ task_config_list.json
 read_list.txt
 #用户自定义任务列表
 customer_task_config.json
+#用户设置(设置页)
+user_setting.json
 
 #   图形化界面
 gui/dist
