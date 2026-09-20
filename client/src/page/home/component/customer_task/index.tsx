@@ -15,6 +15,7 @@ import {
   Checkbox,
   Modal,
   DatePicker,
+  Typography,
 } from 'antd'
 import { DownOutlined } from '@ant-design/icons'
 import { useSnapshot } from 'valtio'
@@ -58,30 +59,51 @@ export default () => {
 
   const taskItemList = Form.useWatch('taskItemList', form)
   const orderItemList = Form.useWatch('orderItemList', form)
+  const generateType = Form.useWatch('generateType', form)
   const legalTaskItemList = taskItemList?.filter((item) => item.id !== '') ?? []
+  // 是否独立输出(每个任务单独成书): 默认独立输出
+  const isIndependent =
+    generateType === undefined || generateType === Consts_Task_Config.Const_Generate_Type_独立输出电子书
+  // 有效任务及其在表单中的原始索引(独立输出时书名与任务一一对应)
+  const validTaskIndexList = (taskItemList ?? [])
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => item.id !== '')
 
   Ahooks.useAsyncEffect(async () => {
-    // 任务列表内容发生变更, 重新生成电子书标题
-    if (autoGenerateTitle) {
-      let title = ''
-      for (const config of legalTaskItemList) {
-        const bufTitle = await window.electronAPI['get-task-default-title']({
-          taskType: config.type,
-          taskId: config.id,
-        })
-        if (title === '') {
-          title = bufTitle
-        } else {
-          title = title + '_' + bufTitle
-        }
-      }
-      // 限制最大长度
-      if (title.length > 100) {
-        title = title.slice(0, 100) + `_等${legalTaskItemList.length}项知乎内容合集`
-      }
-      form.setFieldValue('bookTitle', title)
+    // 未开启自动生成时不覆盖用户手动编辑的书名
+    if (autoGenerateTitle === false) {
+      return
     }
-  }, [JSON.stringify(legalTaskItemList)])
+    if (isIndependent) {
+      // 独立输出: 为每个有效任务单独生成默认书名
+      for (let { item, idx } of validTaskIndexList) {
+        const bufTitle = await window.electronAPI['get-task-default-title']({
+          taskType: item.type,
+          taskId: item.id,
+        })
+        form.setFieldValue(['taskItemList', idx, 'bookTitle'], bufTitle)
+      }
+      return
+    }
+    // 合并输出: 所有任务聚合为单个书名
+    let title = ''
+    for (const config of legalTaskItemList) {
+      const bufTitle = await window.electronAPI['get-task-default-title']({
+        taskType: config.type,
+        taskId: config.id,
+      })
+      if (title === '') {
+        title = bufTitle
+      } else {
+        title = title + '_' + bufTitle
+      }
+    }
+    // 限制最大长度
+    if (title.length > 100) {
+      title = title.slice(0, 100) + `_等${legalTaskItemList.length}项知乎内容合集`
+    }
+    form.setFieldValue('bookTitle', title)
+  }, [JSON.stringify(legalTaskItemList), generateType, autoGenerateTitle])
 
   useEffect(() => {
     if (statusSnap.initComplete === false) {
@@ -247,18 +269,64 @@ export default () => {
           }}
           labelAlign="left"
         >
+          <Form.Item
+            name="generateType"
+            label="生成方式"
+            labelCol={{
+              span: 4,
+            }}
+            extra="独立输出: 每个任务单独生成一本电子书, 并为每个任务单独设置书名(留空则自动生成)"
+          >
+            <Radio.Group buttonStyle="solid">
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_独立输出电子书}>独立输出</Radio.Button>
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_按任务拆分章节}>
+                合并输出(按任务分章节)
+              </Radio.Button>
+              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_内容打乱重排}>
+                合并输出(打乱重排)
+              </Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          <Divider style={{ margin: '12px' }} />
           <Form.Item noStyle>
             <Row justify="space-between" align="middle" gutter={1}>
               <Col span={16}>
-                <Form.Item
-                  name="bookTitle"
-                  label="电子书名"
-                  style={{
-                    margin: '0 auto',
-                  }}
-                >
-                  <Input disabled={autoGenerateTitle} />
-                </Form.Item>
+                {isIndependent ? (
+                  // 独立输出: 每个任务单独设置书名
+                  <Form.Item label="电子书名" style={{ margin: 0 }}>
+                    {validTaskIndexList.length === 0 ? (
+                      <Typography.Text type="secondary">
+                        请先在下方添加任务, 将为每个任务单独生成一本电子书
+                      </Typography.Text>
+                    ) : (
+                      validTaskIndexList.map(({ item, idx }) => (
+                        <Row key={idx} align="middle" gutter={8} style={{ marginBottom: 8 }}>
+                          <Col span={16}>
+                            <Form.Item name={['taskItemList', idx, 'bookTitle']} noStyle>
+                              <Input disabled={autoGenerateTitle} placeholder="电子书名(留空则自动生成)" />
+                            </Form.Item>
+                          </Col>
+                          <Col>
+                            <Typography.Text type="secondary">
+                              任务{idx + 1}: {item.type}_{item.id}
+                            </Typography.Text>
+                          </Col>
+                        </Row>
+                      ))
+                    )}
+                  </Form.Item>
+                ) : (
+                  // 合并输出: 所有任务合并为一本电子书, 使用单个书名
+                  <Form.Item
+                    name="bookTitle"
+                    label="电子书名"
+                    style={{
+                      margin: '0 auto',
+                    }}
+                  >
+                    <Input disabled={autoGenerateTitle} />
+                  </Form.Item>
+                )}
               </Col>
               <Col span={4}>
                 <Checkbox
@@ -351,24 +419,6 @@ export default () => {
               })
             }}
           </Form.List>
-          <Form.Item
-            name="generateType"
-            label="生成方式"
-            labelCol={{
-              span: 3,
-            }}
-            extra="独立输出: 每个任务单独生成一本电子书(书名自动按任务命名, 忽略上方电子书名)"
-          >
-            <Radio.Group buttonStyle="solid">
-              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_独立输出电子书}>独立输出</Radio.Button>
-              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_按任务拆分章节}>
-                合并输出(按任务分章节)
-              </Radio.Button>
-              <Radio.Button value={Consts_Task_Config.Const_Generate_Type_合并输出电子书_内容打乱重排}>
-                合并输出(打乱重排)
-              </Radio.Button>
-            </Radio.Group>
-          </Form.Item>
           <Form.Item
             name="imageQuilty"
             label="图片质量"

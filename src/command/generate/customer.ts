@@ -175,6 +175,8 @@ class GenerateCustomer extends Base {
 
     // 最终电子书数据列表
     let unitPackageList: Package.Type_Unit_Item[] = []
+    // 与 unitPackageList 一一对应的自定义书名(独立输出时优先使用, 为空则按任务自动生成)
+    let unitCustomTitleList: string[] = []
     let mixUnitPackage = new Package.Unit_混合类型({
       pageList: [],
     })
@@ -193,11 +195,14 @@ class GenerateCustomer extends Base {
         }
       } else {
         unitPackageList.push(unitPackage)
+        unitCustomTitleList.push((fetchTask.bookTitle ?? '').trim())
       }
     }
     // 如果有混合类型任务, 合并后作为最后一项加在最后
     if (mixUnitPackage.pageList.length > 0) {
       unitPackageList.push(mixUnitPackage)
+      // 混合类型由多个任务合并而成, 不使用单一任务的自定义书名
+      unitCustomTitleList.push('')
     }
 
     // 日期范围筛选
@@ -216,8 +221,17 @@ class GenerateCustomer extends Base {
           return pageTime >= startTimestamp && pageTime <= endTimestamp
         })
       }
-      // 过滤掉没有页面的单元包
-      unitPackageList = unitPackageList.filter((unit) => unit.pageList.length > 0)
+      // 过滤掉没有页面的单元包(自定义书名列表同步过滤, 保持与单元包一一对应)
+      let filteredUnitPackageList: Package.Type_Unit_Item[] = []
+      let filteredUnitCustomTitleList: string[] = []
+      for (let [index, unitPackage] of unitPackageList.entries()) {
+        if (unitPackage.pageList.length > 0) {
+          filteredUnitPackageList.push(unitPackage)
+          filteredUnitCustomTitleList.push(unitCustomTitleList[index] ?? '')
+        }
+      }
+      unitPackageList = filteredUnitPackageList
+      unitCustomTitleList = filteredUnitCustomTitleList
       this.log(`日期筛选完成，剩余 ${unitPackageList.length} 个单元包`)
     }
 
@@ -262,11 +276,12 @@ class GenerateCustomer extends Base {
     let epubRecordList: Package.Ebook_Column[] = []
     switch (generateType) {
       case Const_TaskConfig.Const_Generate_Type_独立输出电子书:
-        for (let unitPackage of unitPackageList) {
-          // 每个单元输出为一本电子书
+        for (let [index, unitPackage] of unitPackageList.entries()) {
+          // 每个单元输出为一本电子书, 优先使用任务配置的自定义书名, 为空则按任务自动生成
+          let customTitle = unitCustomTitleList[index] ?? ''
           let subEpubRecordList = this.autoSplitUnitPackage({
             unitItemList: [unitPackage],
-            booktitle: this.generateColumnTitle(unitPackage),
+            booktitle: customTitle || this.generateColumnTitle(unitPackage),
             generateConfig,
           })
           for (let item of subEpubRecordList) {

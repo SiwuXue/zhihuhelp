@@ -81,6 +81,7 @@ export type Type_Fetch_Task_Config_Item = {
   rawInputText: string
   comment: string // 备注
   skipFetch: boolean
+  bookTitle?: string // 独立输出时的电子书名(为空时按任务自动生成)
 }
 
 // 日期范围配置

@@ -11,7 +11,8 @@ export type Type_Form_Config = {
         "type": TypeTaskConfig.Type_Item_Collection_Type | TypeTaskConfig.Type_Author_Collection_Type,
         "id": "xie-lu-tian-e" | string,
         "rawInputText": "https://www.zhihu.com/people/xie-lu-tian-e/answers" | string,
-        skipFetch: boolean
+        skipFetch: boolean,
+        bookTitle?: string // 独立输出时的电子书名(为空时按任务自动生成)
     }[],
     "orderItemList": {
         "orderBy": "asc",
@@ -45,7 +46,9 @@ export default class Util {
                 "id": taskItem.id,
                 "rawInputText": taskItem.rawInputText,
                 "skipFetch": taskItem.skipFetch,
-                "type": taskItem.type
+                "type": taskItem.type,
+                // 独立输出时每个任务单独使用的书名(为空时后端按任务自动生成)
+                "bookTitle": (taskItem.bookTitle ?? '').trim(),
             }
             if (fetchTaskItem.id === "") {
                 // 略过id为空的任务
@@ -101,7 +104,9 @@ export default class Util {
                 // 配置项可能没有 rawInputText(如仅 id+type 的任务), 缺失时兜底为空串, 避免 parseUrl(undefined) 崩溃
                 "rawInputText": taskItem.rawInputText ?? '',
                 "skipFetch": taskItem.skipFetch,
-                "type": taskItem.type
+                "type": taskItem.type,
+                // 独立输出时每个任务单独使用的书名
+                "bookTitle": taskItem.bookTitle ?? '',
             }
             formConfig['taskItemList'].push(fetchTaskItem)
         }
