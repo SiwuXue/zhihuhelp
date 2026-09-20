@@ -3,6 +3,7 @@ import CommonConfig from '../../config/common'
 import RequestConfig from '../../config/request'
 import logger from '../../library/logger'
 import asyncGetZhihuEncrypt from '../../library/zhihu_encrypt/index'
+import TaskControl from '../../library/task_control'
 import querystring from 'querystring'
 import lodash from 'lodash'
 import URL from 'url'
@@ -121,6 +122,8 @@ export default class httpClient {
    * @param config
    */
   static async get(url: string, config: AxiosRequestConfig = {}) {
+    // 暂停检查点: 暂停期间挂起等待, 恢复后继续抓取(断点续传)
+    await TaskControl.asyncWaitIfPaused()
     // 知乎有自己的query-encode方法, 因此不能使用axios自带的params合并方法
     // 否则会导致加密失败
     if (config?.params && Object.keys(config?.params ?? {}).length > 0) {
@@ -201,6 +204,8 @@ export default class httpClient {
    * @param url
    */
   static async downloadImg(url: string): Promise<Buffer> {
+    // 暂停检查点: 暂停期间挂起等待, 恢复后继续下载(断点续传)
+    await TaskControl.asyncWaitIfPaused()
     // 图片 CDN 为静态资源, 网络抖动时自动重试, 最多 3 次
     const maxRetry = 3
     let lastError: any

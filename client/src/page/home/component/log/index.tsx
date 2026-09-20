@@ -13,6 +13,10 @@ type Type_Log_Item = {
 export default () => {
   const [isAutoFresh, setIsAutoFresh] = useState<boolean>(true)
   const [logList, setLogList] = useState<Type_Log_Item[]>([])
+  const [taskStatus, setTaskStatus] = useState<{ isRunning: boolean; isPaused: boolean }>({
+    isRunning: false,
+    isPaused: false,
+  })
   const ContainerHeight = 768
   const asyncFetchLogList = async () => {
     let content = await window.electronAPI['get-log-content']()
@@ -41,6 +45,24 @@ export default () => {
     await window.electronAPI['clear-log-content']()
     await asyncFetchLogList()
   }
+  // 每2秒同步任务执行状态(是否在跑/是否已暂停), 用于渲染暂停/继续按钮
+  Ahooks.useInterval(async () => {
+    try {
+      let status = await window.electronAPI['get-task-status']()
+      setTaskStatus({ isRunning: status.isRunning === true, isPaused: status.isPaused === true })
+    } catch (e) {
+      // 状态获取失败不影响日志刷新
+    }
+  }, 2 * 1000)
+
+  // 暂停/继续任务
+  const asyncTogglePause = async () => {
+    let status = taskStatus.isPaused
+      ? await window.electronAPI['resume-task']()
+      : await window.electronAPI['pause-task']()
+    setTaskStatus((prev) => ({ ...prev, isPaused: status?.isPaused === true }))
+  }
+
   Ahooks.useInterval(async () => {
     if (isAutoFresh) {
       // 若自动刷新, 则每2秒刷新一次
@@ -78,6 +100,18 @@ export default () => {
             </Checkbox>
           </Col>
           <Col offset={6}>
+            {taskStatus.isRunning ? (
+              taskStatus.isPaused ? (
+                <Button type="primary" onClick={asyncTogglePause}>
+                  继续任务
+                </Button>
+              ) : (
+                <Button type="default" danger onClick={asyncTogglePause}>
+                  暂停任务
+                </Button>
+              )
+            ) : null}
+            {taskStatus.isRunning ? <Divider type="vertical"></Divider> : null}
             <Button onClick={asyncFetchLogList}>刷新日志</Button>
             <Divider type="vertical"></Divider>
             <Button

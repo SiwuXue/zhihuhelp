@@ -1,4 +1,5 @@
 import Base from '../../command/base'
+import TaskControl from '../../library/task_control'
 import * as Consts from './resource/const/index'
 import * as Const_TaskConfig from '../../constant/task_config'
 import TypeTaskConfig, { Type_Task_Config } from '../../type/task_config'
@@ -98,6 +99,8 @@ class GenerateCustomer extends Base {
       // 输出内容
 
       for (let epubColumn of epubColumnList) {
+        // 暂停检查点: 每本书生成前挂起等待, 恢复后继续生成(断点续传)
+        await TaskControl.asyncWaitIfPaused()
         let bookname = epubColumn.bookname
         let exportFormat = generateConfig.exportFormat || Const_TaskConfig.Const_Default_Export_Format_List
         this.log(`输出电子书:${bookname}, 格式:${exportFormat.join(',')}`)

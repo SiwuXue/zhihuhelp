@@ -18,6 +18,7 @@ import UserSetting from './library/user_setting'
 import DataCleaner from './library/data_cleaner'
 import StorageUtil from './library/storage'
 import ProgressReporter from './library/progress'
+import TaskControl from './library/task_control'
 import CommonConfig from './config/common'
 import dayjs from 'dayjs'
 import http from './library/http'
@@ -286,6 +287,23 @@ app.whenReady().then(() => {
     console.log("PathConfig.outputPath => ", PathConfig.outputPath)
     shell.showItemInFolder(PathConfig.outputPath)
     return
+  })
+
+  // 暂停/继续任务: 暂停期间任务在安全点挂起等待, 恢复后接着执行(断点续传)
+  ipcMain.handle('pause-task', () => {
+    return TaskControl.pause()
+  })
+
+  ipcMain.handle('resume-task', () => {
+    return TaskControl.resume()
+  })
+
+  // 获取任务执行状态(是否在跑/是否已暂停), 供前端渲染暂停/继续按钮
+  ipcMain.handle('get-task-status', () => {
+    return {
+      isRunning,
+      isPaused: TaskControl.isPaused,
+    }
   })
 
   // 获取任务配置

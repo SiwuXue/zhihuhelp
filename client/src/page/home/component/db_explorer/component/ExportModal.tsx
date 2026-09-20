@@ -1,4 +1,4 @@
-import { Alert, Input, Modal, Typography } from 'antd'
+import { Alert, Button, Input, Modal, Typography, message } from 'antd'
 import { useEffect, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import dayjs from 'dayjs'
@@ -22,13 +22,29 @@ export default (props: Props) => {
     let { store } = props
     let snap = useSnapshot(store)
     let [bookname, setBookname] = useState<string>('')
+    let [isPaused, setIsPaused] = useState<boolean>(false)
 
-    // 弹窗打开时, 重置书名为默认值
+    // 弹窗打开时, 重置书名为默认值, 并同步当前任务暂停状态
     useEffect(() => {
         if (snap.exportModalOpen) {
             setBookname(`知乎数据导出_${dayjs().format('YYYY-MM-DD_HHmm')}`)
+            window.electronAPI['get-task-status']().then((status: { isRunning: boolean; isPaused: boolean }) => {
+                setIsPaused(status?.isPaused === true)
+            })
         }
     }, [snap.exportModalOpen])
+
+    // 暂停/继续导出任务
+    let asyncTogglePause = async () => {
+        try {
+            let status = isPaused
+                ? await window.electronAPI['resume-task']()
+                : await window.electronAPI['pause-task']()
+            setIsPaused(status?.isPaused === true)
+        } catch (e: any) {
+            message.error(`操作失败:${e?.message ?? e}`)
+        }
+    }
 
     let formatLabelList = snap.exportFormats.map((format) => Consts.Const_Export_Format_Label_Map[format] || format)
 
@@ -73,6 +89,22 @@ export default (props: Props) => {
                     message="导出耗时取决于内容量与图片数量, 开始后将在下方实时显示进度。"
                 />
             )}
+            {snap.exporting ? (
+                <div style={{ marginTop: 12 }}>
+                    {isPaused ? (
+                        <Button type="primary" onClick={asyncTogglePause}>
+                            继续导出
+                        </Button>
+                    ) : (
+                        <Button danger onClick={asyncTogglePause}>
+                            暂停导出
+                        </Button>
+                    )}
+                    <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+                        暂停后可随时继续, 已抓取的进度不会丢失。
+                    </Typography.Text>
+                </div>
+            ) : null}
         </Modal>
     )
 }
