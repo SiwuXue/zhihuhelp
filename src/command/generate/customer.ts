@@ -73,7 +73,6 @@ class GenerateCustomer extends Base {
     try {
       this.log(`从${PathConfig.configUri}中读取配置文件`)
       let fetchConfigJSON = fs.readFileSync(PathConfig.configUri).toString()
-      this.log('content =>', fetchConfigJSON)
       let customerTaskConfig: TypeTaskConfig.Type_Task_Config = json5.parse(fetchConfigJSON)
 
       let generateConfig = customerTaskConfig.generateConfig
@@ -834,6 +833,9 @@ class GenerateCustomer extends Base {
 
       while (currentItemCount + nextUnit.getItemCount() < generateConfig.maxItemInBook) {
         currentUnitList.push(nextUnit)
+        // 累加当前卷已容纳的条目数, 否则判断永远基于0, 会把所有小单元全部塞进同一卷,
+        // 导致实际卷数少于总卷数(totalColumnCount), 出现"1-4卷/2-4卷/3-4卷但无4-4卷"的问题
+        currentItemCount += nextUnit.getItemCount()
         nextUnit = processUnitList.shift() as Package.Type_Unit_Item
         if (nextUnit === undefined) {
           break
@@ -942,11 +944,13 @@ class GenerateCustomer extends Base {
         })
         epubItemList.push(epubItem)
 
-        // 溢出部分重新放回待处理列表
-        for (let page of remainPageList) {
-          remainUnit.add(page)
+        // 溢出部分重新放回待处理列表(恰好整除时剩余为空, 不再回塞, 避免产生空卷)
+        if (remainPageList.length > 0) {
+          for (let page of remainPageList) {
+            remainUnit.add(page)
+          }
+          processUnitList.unshift(remainUnit)
         }
-        processUnitList.unshift(remainUnit)
       }
     }
 

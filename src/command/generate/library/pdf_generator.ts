@@ -430,11 +430,25 @@ class PdfGenerator {
   }
 
   /**
+   * A4 内容区高度对应的 CSS 像素(@96dpi): (297mm - 2*20mm) / 25.4 * 96 ≈ 971.3px
+   * printToPDF 按 1 CSS px = 1/96 英寸分页, 标题的 offsetTop 除以该值即为批内页码
+   */
+  private get contentHeightPx(): number {
+    return ((297 - 20 * 2) / 25.4) * 96
+  }
+
+  /**
    * 创建用于 PDF 渲染的隐藏窗口
+   * 窗口内容宽度 = A4 内容区宽度((210mm - 2*20mm) @96dpi ≈ 642px),
+   * 保证屏幕布局与打印布局折行一致, 测量出的标题位置才能对应到正确的打印页码
    */
   private async createHiddenPdfWindow(): Promise<BrowserWindow> {
+    const contentWidthPx = Math.floor(((210 - 20 * 2) / 25.4) * 96)
     const win = new BrowserWindow({
       show: false,
+      useContentSize: true,
+      width: contentWidthPx,
+      height: 1200,
       webPreferences: {
         offscreen: false,
         sandbox: false,
@@ -444,20 +458,60 @@ class PdfGenerator {
   }
 
   /**
-   * 用指定隐藏窗口将单个 HTML 转为 PDF
+   * 测量 HTML 中所有 h1 标题在文档中的位置, 换算为批内页码, 用于合并时重建书签
+   * 背景: Electron 的 printToPDF 开启 generateDocumentOutline 也不生成书签(实测),
+   * 因此书签只能在打印前自行测量、合并时自行写入
    */
-  private async convertHtmlToPdfWithWindow(win: BrowserWindow, htmlPath: string, pdfPath: string, waitMs: number): Promise<void> {
+  private async collectPdfBookmarks(win: BrowserWindow): Promise<Array<{ title: string; pageIndex: number }>> {
+    try {
+      const rawList: Array<{ title: string; top: number }> = await win.webContents.executeJavaScript(
+        `Array.from(document.querySelectorAll('h1')).map((el) => ({
+          title: (el.textContent || '').trim(),
+          top: el.getBoundingClientRect().top + window.pageYOffset,
+        }))`,
+      )
+      const pageHeight = this.contentHeightPx
+      const bookmarkList: Array<{ title: string; pageIndex: number }> = []
+      for (let item of rawList || []) {
+        if (!item.title) {
+          continue
+        }
+        const title = item.title.length > 80 ? `${item.title.slice(0, 80)}...` : item.title
+        bookmarkList.push({
+          title: title,
+          pageIndex: Math.max(0, Math.floor(item.top / pageHeight)),
+        })
+      }
+      return bookmarkList
+    } catch (e) {
+      logger.warn(`[PdfGenerator] 测量标题位置失败, 本批书签将被跳过: ${e}`)
+      return []
+    }
+  }
+
+  /**
+   * 用指定隐藏窗口将单个 HTML 转为 PDF, 返回该批的书签列表(批内页码)
+   */
+  private async convertHtmlToPdfWithWindow(
+    win: BrowserWindow,
+    htmlPath: string,
+    pdfPath: string,
+    waitMs: number,
+  ): Promise<Array<{ title: string; pageIndex: number }>> {
     try {
       await win.loadFile(htmlPath)
       // 额外等待，确保图片渲染完成
       await new Promise((resolve) => setTimeout(resolve, waitMs))
+
+      // 在打印前测量标题位置(此时布局已定), Chromium 的 printToPDF 无法生成书签
+      const bookmarkList = await this.collectPdfBookmarks(win)
 
       // margins 单位为英寸, 20mm ≈ 0.7874 英寸
       const marginInch = 20 / 25.4
       const pdfData = await win.webContents.printToPDF({
         printBackground: true,
         pageSize: 'A4',
-        // 根据 HTML 中的标题（h1/h2/h3…）生成 PDF 书签/目录
+        // generateDocumentOutline 在 Electron 中实测不生效, 保留以兼容未来版本, 书签由 collectPdfBookmarks + mergePdfs 自行实现
         generateDocumentOutline: true,
         margins: {
           top: marginInch,
@@ -467,6 +521,7 @@ class PdfGenerator {
         },
       })
       fs.writeFileSync(pdfPath, pdfData)
+      return bookmarkList
     } catch (error) {
       logger.log(`[PdfGenerator] HTML 转 PDF 失败: ${htmlPath}, 错误: ${error}`)
       throw error
@@ -475,17 +530,23 @@ class PdfGenerator {
 
   /**
    * 一次性创建隐藏窗口，依次将多个 HTML 转为 PDF（避免超大单页 HTML 导致内存崩溃）
+   * 返回每批对应的书签列表(批内页码), 供 mergePdfs 重建书签
    */
-  async convertHtmlListToPdf(htmlPathList: string[], pdfPathList: string[]): Promise<void> {
+  async convertHtmlListToPdf(
+    htmlPathList: string[],
+    pdfPathList: string[],
+  ): Promise<Array<Array<{ title: string; pageIndex: number }>>> {
     if (htmlPathList.length !== pdfPathList.length) {
       throw new Error(`[PdfGenerator] htmlPathList 与 pdfPathList 长度不一致`)
     }
 
+    const bookmarkBatchList: Array<Array<{ title: string; pageIndex: number }>> = []
     let win: BrowserWindow | null = null
     try {
       win = await this.createHiddenPdfWindow()
       for (let i = 0; i < htmlPathList.length; i++) {
-        await this.convertHtmlToPdfWithWindow(win, htmlPathList[i], pdfPathList[i], 1000)
+        const bookmarkList = await this.convertHtmlToPdfWithWindow(win, htmlPathList[i], pdfPathList[i], 1000)
+        bookmarkBatchList.push(bookmarkList)
       }
     } finally {
       if (win) {
@@ -496,37 +557,58 @@ class PdfGenerator {
         }
       }
     }
+    return bookmarkBatchList
   }
 
   /**
    * 用 pdf-lib 合并多个 PDF 为一个 PDF，并重建书签（outline）
+   * @param bookmarkBatchList 可选, 每批 PDF 对应的书签列表(批内页码), 由打印前测量得到;
+   *                          不传时退回从源 PDF 读取书签(Electron printToPDF 实测不生成, 一般读不到)
    */
-  async mergePdfs(pdfPathList: string[], outputPath: string): Promise<void> {
+  async mergePdfs(
+    pdfPathList: string[],
+    outputPath: string,
+    bookmarkBatchList?: Array<Array<{ title: string; pageIndex: number }>>,
+  ): Promise<void> {
     const mergedPdf = await PDFDocument.create()
     let pageOffset = 0
     let bookmarkList: Array<{ title: string; pageIndex: number; left?: number; top?: number; zoom?: number }> = []
 
-    for (let pdfPath of pdfPathList) {
+    for (let i = 0; i < pdfPathList.length; i++) {
+      const pdfPath = pdfPathList[i]
       if (!fs.existsSync(pdfPath)) {
         continue
       }
       const srcBytes = fs.readFileSync(pdfPath)
       const srcPdf = await PDFDocument.load(srcBytes)
+      const batchPageCount = srcPdf.getPageCount()
 
-      // 读取该批 PDF 的书签（批内页码），并平移到合并后的全局页码
-      // 书签读取失败不应阻断PDF合并, 记录警告并跳过书签即可
-      try {
-        for (let bookmark of this.readOutline(srcPdf)) {
+      // 书签优先使用打印前测量的结果, 页码平移到合并后的全局页码
+      const batchBookmarks = bookmarkBatchList?.[i]
+      if (batchBookmarks && batchBookmarks.length > 0) {
+        for (let bookmark of batchBookmarks) {
           bookmarkList.push({
             title: bookmark.title,
-            pageIndex: bookmark.pageIndex + pageOffset,
-            left: bookmark.left,
-            top: bookmark.top,
-            zoom: bookmark.zoom,
+            // 测量误差保护: 页码越界时收敛到本批最后一页
+            pageIndex: Math.min(bookmark.pageIndex, batchPageCount - 1) + pageOffset,
           })
         }
-      } catch (e) {
-        logger.warn(`[PdfGenerator] 读取PDF书签失败, 已跳过该书签, 错误: ${e}`)
+      } else {
+        // 退回读取该批 PDF 自带的书签(批内页码), 并平移到合并后的全局页码
+        // 书签读取失败不应阻断PDF合并, 记录警告并跳过书签即可
+        try {
+          for (let bookmark of this.readOutline(srcPdf)) {
+            bookmarkList.push({
+              title: bookmark.title,
+              pageIndex: bookmark.pageIndex + pageOffset,
+              left: bookmark.left,
+              top: bookmark.top,
+              zoom: bookmark.zoom,
+            })
+          }
+        } catch (e) {
+          logger.warn(`[PdfGenerator] 读取PDF书签失败, 已跳过该书签, 错误: ${e}`)
+        }
       }
 
       const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices())
@@ -534,7 +616,7 @@ class PdfGenerator {
         mergedPdf.addPage(page)
       }
 
-      pageOffset += srcPdf.getPageCount()
+      pageOffset += batchPageCount
     }
 
     // 重建书签
@@ -823,11 +905,11 @@ class PdfGenerator {
       tempPdfPathList.push(tempPdfPath)
     }
 
-    // 4. 分批转换为 PDF
-    await this.convertHtmlListToPdf(tempHtmlPathList, tempPdfPathList)
+    // 4. 分批转换为 PDF, 同时收集每批的书签(批内页码)
+    const bookmarkBatchList = await this.convertHtmlListToPdf(tempHtmlPathList, tempPdfPathList)
 
-    // 5. 合并为一个 PDF
-    await this.mergePdfs(tempPdfPathList, outputPath)
+    // 5. 合并为一个 PDF, 并用测量到的书签重建 outline
+    await this.mergePdfs(tempPdfPathList, outputPath, bookmarkBatchList)
 
     // 6. 清理临时文件
     for (let p of tempHtmlPathList) {
